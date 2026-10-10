@@ -45,7 +45,7 @@ export const TOOLS = [
   },
 ] as const;
 
-const g = globalThis as unknown as { __orkProposals?: Record<string, DateProposal> };
+const g = globalThis as unknown as { __orkProposals?: Record<string, DateProposal>; __orkCorte?: number; __orkAsk?: "corte" | "pago" };
 const proposals = () => (g.__orkProposals ??= {});
 
 function short(o: Json) {
@@ -129,7 +129,8 @@ Reglas que DEBES respetar:
 - La fecha solo se mueve HACIA ADELANTE. Nunca hacia atrás ni con crédito; el hueco se cubre por adelantado (el merchant lo absorbe por defecto).
 - "Se condona lo que se bloqueó; se cobra lo que se consumió". Corte duro (café, limpieza): rescate sin cobrar el hueco. Con gracia (snacks): se cobran los días usados, sin rescate.
 - Rescate hacia adelante solo tras pago fallido y solo para corte duro.
-- Fechas buenas: 16 (post-quincena 15), 1 (post-30), o el día después del corte de tarjeta.
+- Fechas buenas: 16 (post-quincena 15), 1 (post-30), el día después del corte de tarjeta, el día después del pago de nómina, o el día que el usuario pida para cada suscripción.
+- Si falta un dato, pregunta en una frase: "¿Qué día corta tu tarjeta?" o "¿Cuándo te cae tu pago?".
 Flujo: para cambiar fechas llama propose_date_change por cada suscripción, explica en 1-2 frases y pide confirmación; cuando el usuario confirme, llama confirm_date_change. Para cobrar usa run_billing_cycle (crea una tarjeta de aprobación; no digas que ya se cobró). Tras rescue_forward, llama run_billing_cycle.
 Responde en español de México con frases cortas y simples (máx. 3), sin jerga técnica: no digas enrollment, quote, checkout, merchant, dunning ni prorrata. Montos en USD.`;
 }
@@ -197,16 +198,21 @@ function targetSubs(text: string): string[] {
 
 async function runRules(text: string): Promise<string> {
   const s = state();
-  const t = text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  let t = text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const ask = g.__orkAsk;
+  g.__orkAsk = undefined;
+  if (ask && /\d/.test(t) &&!/cort[ea]|quincena|nomina|pago|fall|rescat/.test(t)) {
+    t = ask === "corte" ? `mi tarjeta corta el dia ${t}` : `me pagan el dia ${t}`;
+  }
   const subs = targetSubs(text);
   const pending = Object.values(proposals());
 
   // Confirmación
   if (pending.length && /^(si|sí|dale|confirm|ok|va|hazlo|aplica|claro)/.test(t.trim())) {
     for (const p of pending) await runTool("confirm_date_change", { sub_id: p.subId });
-    const m = state();
-    void m;
-    return `Listo. Ya ningún cobro cae antes de tu quincena, y no cancelaste nada.\nAhora puedes cobrar con Reap: elige una suscripción y pulsa “Cobrar ahora”.`;
+    const allSafe = state().subs.every((x) => isSafeDay(x.billingDay, state().paydays));
+    const done = allSafe ? "Listo. Ya ningún cobro cae antes de tu quincena, y no cancelaste nada." : "Listo. Ya moví tus cobros a las fechas nuevas, y no cancelaste nada.";
+    return `${done}\nAhora puedes cobrar con Reap: elige una suscripción y pulsa “Cobrar ahora”.`;
   }
   if (pending.length && /^(no|cancela|olvidalo)/.test(t.trim())) {
     g.__orkProposals = {};
@@ -229,8 +235,13 @@ async function runRules(text: string): Promise<string> {
     return `El pago de ${sub.name.toLowerCase()} falló. Lo moví al ${dia(r.newDate)}, después de tu quincena, y no te cobro los ${r.blockedDays} días perdidos.\nAprueba el cobro de $${c.total} para reintentar.`;
   }
 
-  // Cobrar / ejecutar ciclo
-  if (/cobra(lo|r)? (ya|ahora)|ejecuta|corre el ciclo|reintenta|paga(lo)? ya/.test(t) || (/^cobra/.test(t) && !/\d/.test(t))) {
+  // Referencias de fecha que el usuario puede dar
+  const corteKw = /\bcort[ea]\b|fecha de corte/.test(t);
+  const payKw = /quincena|nomina|me pagan|me depositan|sueldo|dia de pago|mi pago|cae (el |mi )?pago/.test(t);
+
+  // Cobrar / ejecutar ciclo (no si el mensaje habla de cuándo cobrar)
+  const aboutWhen = corteKw || payKw || /despues/.test(t);
+  if (!aboutWhen && (/cobra(lo|r)? (ya|ahora)|ejecuta|corre el ciclo|reintenta|paga(lo)? ya/.test(t) || (/^cobra/.test(t) && !/\d/.test(t)))) {
     const out: string[] = [];
     for (const id of subs.slice(0, 3)) {
       const r = await runTool("run_billing_cycle", { sub_id: id, reason: "Pedido por el usuario desde el chat." });
@@ -240,39 +251,53 @@ async function runRules(text: string): Promise<string> {
     return `Le pregunté el precio a Reap: ${out.join("; ")}.\nNo cobro nada hasta que lo apruebes.`;
   }
 
-  // Cambio de fecha: corte de tarjeta, quincena o día explícito
-  let day: number | null = null;
-  let why = "";
-  const corte = t.match(/corte[^\d]*(\d{1,2})/) || t.match(/(\d{1,2})[^\d]*corte/);
+  // Cambio de fecha: corte de tarjeta, quincena/nómina, día por suscripción o día explícito
   const nums = (t.match(/\d{1,2}/g) || []).map(Number).filter((n) => n >= 1 && n <= 31);
-  if (corte) {
-    day = (Number(corte[1]) % 31) + 1;
-    why = `el día después de tu corte (día ${corte[1]})`;
-  } else if (/quincena/.test(t)) {
+  const targets: Record<string, number> = {}; // sub_id → día objetivo
+  let why = "";
+
+  if (corteKw) {
+    const corteDay = nums[0] ?? g.__orkCorte;
+    if (!corteDay) { g.__orkAsk = "corte"; return "¿Qué día corta tu tarjeta?"; }
+    g.__orkCorte = corteDay;
+    log("usuario", `Corte de tarjeta: día ${corteDay}`);
+    const day = (corteDay % 31) + 1; // el día siguiente al corte
+    for (const id of subs) targets[id] = day;
+    why = `el día después de tu corte (día ${corteDay})`;
+  } else if (payKw) {
     if (nums.length) s.paydays = Array.from(new Set(nums)).sort((a, b) => a - b);
-    day = bestDayAfterPayday(s.paydays);
-    why = "justo después de tu quincena";
-    log("usuario", `Quincenas: día ${s.paydays.join(" y ")}`);
-  } else if (nums.length) {
-    day = nums[nums.length - 1];
-    why = `el día ${day} que pediste`;
-  }
-  if (day) {
-    const lines: string[] = [];
-    const perSub = /quincena/.test(t) && !corte;
-    if (perSub) why = "justo después de tu quincena";
+    else if (!/quincena/.test(t)) { g.__orkAsk = "pago"; return "¿Cuándo te cae tu pago?"; }
+    log("usuario", `Días de pago: ${s.paydays.join(" y ")}`);
+    // Para cada suscripción, el día post-pago con el menor hueco hacia adelante.
+    const candidates = s.paydays.map((p) => (p >= 30 ? 1 : p + 1));
     for (const id of subs) {
-      // Con quincenas: para cada suscripción, el día post-quincena con el menor hueco hacia adelante.
-      let target = day;
-      if (perSub) {
-        const sub = s.subs.find((x) => x.id === id)!;
-        const candidates = s.paydays.map((p) => (p >= 30 ? 1 : p + 1));
-        target = candidates.sort((a, b) => proposeDateChange(sub, a, s.today).gapDays - proposeDateChange(sub, b, s.today).gapDays)[0];
-      }
+      const sub = s.subs.find((x) => x.id === id)!;
+      targets[id] = [...candidates].sort((a, b) => proposeDateChange(sub, a, s.today).gapDays - proposeDateChange(sub, b, s.today).gapDays)[0];
+    }
+    why = /quincena/.test(t) ? "justo después de tu quincena" : "justo después de tu día de pago";
+  } else {
+    // "el café el 20 y la limpieza el 5": un día por suscripción
+    const KEY: [RegExp, string][] = [[/cafe/, "cafe"], [/snack|botana|papas/, "snacks"], [/limpi|spray/, "limpieza"]];
+    for (const m of Array.from(t.matchAll(/(cafe|snacks?|botanas?|papas|limpieza|limpiar|spray)[^\d]{0,25}?(\d{1,2})/g))) {
+      const id = KEY.find(([re]) => re.test(m[1]))?.[1];
+      const n = Number(m[2]);
+      if (id && n >= 1 && n <= 31) targets[id] = n;
+    }
+    if (Object.keys(targets).length) why = "en los días que pediste";
+    else if (nums.length) {
+      for (const id of subs) targets[id] = nums[nums.length - 1];
+      why = `el día ${nums[nums.length - 1]}`;
+    }
+  }
+
+  if (Object.keys(targets).length) {
+    const lines: string[] = [];
+    for (const [id, target] of Object.entries(targets)) {
       const p = await runTool("propose_date_change", { sub_id: id, target_day: target });
-      if (p.error) lines.push(p.error);
-      else if (p.gapDays === 0) { delete proposals()[id]; lines.push(`${state().subs.find((x) => x.id === id)!.name}: ya se cobra el día ${target}`); }
-      else lines.push(`${state().subs.find((x) => x.id === id)!.name}: del ${dia(p.fromDate)} al ${dia(p.toDate)}`);
+      const name = state().subs.find((x) => x.id === id)!.name;
+      if (p.error) lines.push(`${name}: ${p.error}`);
+      else if (p.gapDays === 0) { delete proposals()[id]; lines.push(`${name}: ya se cobra el día ${target}`); }
+      else lines.push(`${name}: del ${dia(p.fromDate)} al ${dia(p.toDate)}`);
     }
     const any = Object.keys(proposals()).length > 0;
     return `Te propongo cobrar ${why}:\n• ${lines.join("\n• ")}\n${any ? "Solo muevo fechas hacia adelante y no pagas de más. ¿Lo aplico?" : ""}`.trim();

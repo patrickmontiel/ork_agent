@@ -22,7 +22,7 @@ type St = {
   baselineDays: Record<string, number>; pendingProposals: Proposal[];
 };
 
-const EXAMPLES = ["Mi quincena cae el 15 y el 30", "Falló el pago del café", "Cobra los snacks ahora"];
+const EXAMPLES = ["Mi quincena cae el 15 y el 30", "Mi tarjeta corta el día 8", "Cobra todo después de mi corte", "Falló el pago del café"];
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const dia = (iso: string) => { const [, m, d] = iso.split("-").map(Number); return `${d} de ${MESES[m - 1]}`; };
 const money = (n: number) => `$${n.toFixed(2)}`;
@@ -87,7 +87,9 @@ export default function Home() {
 
   // ---- La historia en 3 pasos se deriva del estado ----
   const proposals = st.pendingProposals ?? [];
-  const changed = st.metrics.riskyWithOrk < st.metrics.riskyWithoutOrk;
+  const improved = st.metrics.riskyWithOrk < st.metrics.riskyWithoutOrk;
+  // Hubo cambio si alguna suscripción ya no se cobra en su día original (quincena, corte, nómina o día elegido).
+  const changed = st.metrics.riskyWithOrk < st.metrics.riskyWithoutOrk || st.subs.some((s) => (st.baselineDays?.[s.id] ?? s.billingDay) !== s.billingDay);
   const current = st.approvals.find((a) => !dismissed.includes(a.id) && a.status !== "rechazada");
   const paid = st.approvals.some((a) => a.status === "completada");
   const step1: StepState = proposals.length || changed ? "done" : "active";
@@ -115,7 +117,7 @@ export default function Home() {
         <div className="mt-8" aria-live="polite">
           <div className="text-sm font-medium text-violet-100/80 md:text-base">Cobros que caen antes de tu quincena</div>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 md:gap-x-6">
-            {changed && (
+            {improved && (
               <>
                 <span className="text-4xl font-bold tabular-nums text-rose-300/80 line-through decoration-rose-300/50 md:text-6xl">
                   {st.metrics.riskyWithoutOrk} de {st.metrics.total}
@@ -125,7 +127,7 @@ export default function Home() {
             )}
             <span
               key={st.metrics.riskyWithOrk}
-              className={`settle text-5xl font-black tabular-nums tracking-[-0.03em] md:text-7xl ${st.metrics.riskyWithOrk === 0 ? "text-emerald-300" : changed ? "text-white" : "text-rose-300"}`}
+              className={`settle text-5xl font-black tabular-nums tracking-[-0.03em] md:text-7xl ${st.metrics.riskyWithOrk === 0 ? "text-emerald-300" : improved ? "text-white" : "text-rose-300"}`}
             >
               {st.metrics.riskyWithOrk} de {st.metrics.total}
             </span>
@@ -135,7 +137,7 @@ export default function Home() {
 
       {/* 3 pasos */}
       <ol className="mx-auto mt-10 grid max-w-4xl gap-2 sm:grid-cols-3" aria-label="Pasos del demo">
-        <Step n={1} state={step1} label="Dile al agente cuándo cobras" />
+        <Step n={1} state={step1} label="Dile a Ork cuándo te conviene pagar" />
         <Step n={2} state={step2} label="Revisa y aprueba el cambio" />
         <Step n={3} state={step3} label="Cobra con Reap y confirma" />
       </ol>
@@ -148,7 +150,7 @@ export default function Home() {
           </div>
           <div ref={chatBox} className="max-h-[360px] flex-1 space-y-2.5 overflow-y-auto p-5 text-[15px]" aria-live="polite">
             {st.chat.length === 0 && (
-              <p className="text-violet-100/80">Hola. Dime cuándo te pagan y muevo tus cobros a un día en que sí tengas dinero. Prueba con un ejemplo:</p>
+              <p className="text-violet-100/80">Hola. Dime cuándo te conviene pagar: tu quincena, el día de tu nómina, el corte de tu tarjeta o un día para cada suscripción. Prueba con un ejemplo:</p>
             )}
             {st.chat.map((m, i) => (
               <div
@@ -160,7 +162,7 @@ export default function Home() {
             ))}
             {busy === "chat" && <div className="w-fit rounded-2xl bg-white/[0.07] px-4 py-2.5 text-violet-100/75">Pensando…</div>}
           </div>
-          <div className="grid gap-2 px-5 pb-3 sm:grid-cols-3">
+          <div className="grid gap-2 px-5 pb-3 sm:grid-cols-2">
             {EXAMPLES.map((e) => (
               <button
                 key={e}
@@ -177,7 +179,7 @@ export default function Home() {
             <input
               id="chat-in"
               className="min-w-0 flex-1 rounded-lg bg-white/[0.07] px-3 py-2.5 text-sm text-white outline-none placeholder:text-violet-200/60 focus:ring-2 focus:ring-violet-400/60"
-              placeholder="O escribe, por ejemplo: cóbrame todo el día 16"
+              placeholder="O escribe, por ejemplo: el café el 20 y la limpieza el 5"
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
@@ -402,8 +404,8 @@ function ActionPanel({ st, busy, current, proposals, cardOk, changed, act, send,
     );
   } else {
     body = (
-      <Screen kicker="Paso 1" title="Empieza en el chat">
-        <p className="text-violet-100/80">Toca “Mi quincena cae el 15 y el 30”. El agente propone nuevas fechas y tú decides.</p>
+      <Screen kicker="Paso 1" title="Dile a Ork cuándo te conviene pagar">
+        <p className="text-violet-100/80">Usa tu quincena, tu nómina, el corte de tu tarjeta o un día por suscripción. Toca un ejemplo del chat: Ork propone las fechas y tú decides.</p>
       </Screen>
     );
   }

@@ -123,6 +123,11 @@ export function state(): State {
 
 export function reset(): State {
   const keepEnrollment = g.__ork?.enrollment ?? null;
+  // Memoria de conversación del agente: propuestas pendientes, corte recordado y pregunta abierta.
+  const agentMem = globalThis as unknown as { __orkProposals?: unknown; __orkCorte?: unknown; __orkAsk?: unknown };
+  agentMem.__orkProposals = {};
+  agentMem.__orkCorte = undefined;
+  agentMem.__orkAsk = undefined;
   g.__ork = fresh();
   g.__ork.enrollment = keepEnrollment;
   log("sistema", "Estado reiniciado", keepEnrollment ? "Se conservó la tarjeta registrada." : undefined);
