@@ -72,7 +72,7 @@ export const DEMO_OWNER = { type: "CLIENT_REFERENCE", id: "ork-hackathon-user", 
 export const DEMO_ADDRESS = {
   firstName: "Avery",
   lastName: "Tan",
-  phone: "+14155550132",
+  phone: "+16505347891",
   addressLine1: "1600 Amphitheatre Parkway",
   city: "Mountain View",
   region: "CA",
