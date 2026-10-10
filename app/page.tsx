@@ -7,7 +7,7 @@ type Sub = {
   monthlyAmount: number; billingDay: number; nextCharge: string; status: "activa" | "pago_fallido" | "rescatada"; safe: boolean; lastOrderId?: string;
 };
 type Approval = {
-  id: string; subId: string; status: string; reason: string; limitWarning?: string; error?: string; orderId?: string; finalAmount?: number; checkoutId?: string;
+  id: string; subId: string; status: string; reason: string; limitWarning?: string; error?: string; orderId?: string; finalAmount?: number; checkoutId?: string; actionUrl?: string;
   quote: { quoteId: string; subtotal: number; shipping: number; tax: number; total: number; currency: string; shippingName?: string; expiresAt?: string; simulated: boolean };
 };
 type LogE = { id: number; at: string; kind: string; title: string; detail?: string; simulated?: boolean };
@@ -42,11 +42,12 @@ export default function Home() {
 
   // Polling de la enrollment hasta ACTIVE
   const enrPending = st?.enrollment && st.enrollment.status !== "ACTIVE";
+  const payPending = st?.approvals.some((a) => a.status === "confirmar_en_reap");
   useEffect(() => {
-    if (!enrPending) return;
+    if (!enrPending && !payPending) return;
     const t = setInterval(() => load(true), 4000);
     return () => clearInterval(t);
-  }, [enrPending, load]);
+  }, [enrPending, payPending, load]);
 
   async function act(action: string, extra: Record<string, unknown> = {}, label = action) {
     setBusy(label);
@@ -211,6 +212,12 @@ export default function Home() {
                   </div>
                   {a.limitWarning && <div className="mt-2 rounded-lg bg-amber-400/10 p-2 text-xs text-amber-200">Control de gasto: {a.limitWarning}</div>}
                   {a.error && <div className="mt-2 rounded-lg bg-rose-400/10 p-2 text-xs text-rose-200">{a.error}</div>}
+                  {a.status === "confirmar_en_reap" && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {a.actionUrl && <a className="btn-primary" href={a.actionUrl} target="_blank" rel="noreferrer">Confirmar pago en Reap ↗</a>}
+                      <span className="text-xs text-sky-300 animate-pulse">Esperando que Reap marque el pago como COMPLETED…</span>
+                    </div>
+                  )}
                   {a.status === "pendiente" && (
                     <div className="mt-3 flex items-center gap-2">
                       <button className="btn-primary" disabled={!!busy} onClick={() => act("approve", { approvalId: a.id }, "approve")}>
@@ -298,9 +305,9 @@ function Cell({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
 
 function StatusPill({ status }: { status: string }) {
   const m: Record<string, string> = {
-    pendiente: "bg-emerald-400/20 text-emerald-300", procesando: "bg-sky-400/20 text-sky-300", completada: "bg-emerald-400 text-black",
+    pendiente: "bg-emerald-400/20 text-emerald-300", procesando: "bg-sky-400/20 text-sky-300", confirmar_en_reap: "bg-sky-400/20 text-sky-300", completada: "bg-emerald-400 text-black",
     rechazada: "bg-white/10 text-white/60", error: "bg-rose-400/20 text-rose-300", bloqueada: "bg-amber-400/20 text-amber-300",
   };
-  const label: Record<string, string> = { pendiente: "Esperando tu aprobación", completada: "Pagado ✓", bloqueada: "Bloqueado por límite" };
+  const label: Record<string, string> = { pendiente: "Esperando tu aprobación", confirmar_en_reap: "Confirma en Reap", completada: "Pagado ✓", bloqueada: "Bloqueado por límite" };
   return <span className={`rounded-full px-2 py-0.5 text-[11px] ${m[status] || ""}`}>{label[status] || status}</span>;
 }

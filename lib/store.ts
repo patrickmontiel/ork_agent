@@ -28,10 +28,11 @@ export interface Approval {
   id: string;
   subId: string;
   createdAt: string;
-  status: "pendiente" | "aprobada" | "rechazada" | "procesando" | "completada" | "error" | "bloqueada";
+  status: "pendiente" | "aprobada" | "rechazada" | "procesando" | "completada" | "error" | "bloqueada" | "confirmar_en_reap";
   quote: QuoteView;
   reason: string; // por qué el agente pide este cobro
   checkoutId?: string;
+  actionUrl?: string; // página de Reap donde la persona confirma el pago
   orderId?: string;
   finalAmount?: number;
   error?: string;

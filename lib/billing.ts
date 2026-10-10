@@ -113,29 +113,55 @@ export async function decide(approvalId: string, approve: boolean): Promise<Appr
       log("reap", "POST /agentic/checkouts", `quote ${a.quote.quoteId} · enrollment ${enr.id.slice(0, 8)}… · X-Simulate-Checkout: COMPLETED`);
       const c: any = await reapApi.createCheckout(a.quote.quoteId, enr.id, RETURN_URL);
       a.checkoutId = c.id;
-      let cur: any = c;
-      for (let i = 0; i < 15 && !["COMPLETED", "FAILED", "CANCELED", "CANCELLED", "EXPIRED"].includes(cur.status); i++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        cur = await reapApi.getCheckout(c.id);
+      log("reap", `Checkout ${String(c.id).slice(0, 8)}… → ${c.status}`, `${amt(c.amount) || a.quote.total} USD`);
+      if (c.status === "REQUIRES_ACTION") {
+        // Reap pide que la persona confirme el pago en su página alojada. El agente no puede saltarse este paso.
+        a.status = "confirmar_en_reap";
+        a.actionUrl = c.nextAction?.url;
+        log("agente", `Falta tu confirmación en Reap: ${sub.name}`, "Abre “Confirmar pago en Reap”. La app espera el COMPLETED.");
+        return a;
       }
-      log("reap", `GET /agentic/checkouts/${String(c.id).slice(0, 8)}… → ${cur.status}`);
-      if (cur.status !== "COMPLETED") throw new Error(`Checkout terminó en ${cur.status}`);
-      a.orderId = cur.orderId || cur.order?.id || cur.id;
-      a.finalAmount = amt(cur.finalAmount) || a.quote.total;
+      if (c.status !== "COMPLETED") throw new Error(`Checkout en estado ${c.status}`);
+      a.orderId = c.orderId || c.order?.id || c.id;
+      a.finalAmount = amt(c.finalAmount) || a.quote.total;
     }
-    a.status = "completada";
-    s.spentThisMonth = round2(s.spentThisMonth + (a.finalAmount ?? a.quote.total));
-    const prev = sub.nextCharge;
-    sub.nextCharge = addOneCycle(sub.nextCharge < s.today ? s.today : sub.nextCharge, sub.billingDay);
-    sub.status = sub.status === "pago_fallido" ? "rescatada" : sub.status;
-    sub.lastOrderId = a.orderId;
-    log("agente", `Ciclo cobrado: ${sub.name}`, `Orden ${a.orderId} · $${a.finalAmount}. Siguiente cobro: ${sub.nextCharge} (antes ${prev}).`);
+    finalize(a);
   } catch (e) {
     a.status = "error";
     a.error = errMsg(e);
     log("error", `Checkout de ${sub.name} falló`, a.error);
   }
   return a;
+}
+
+function finalize(a: Approval) {
+  const s = state();
+  const sub = s.subs.find((x) => x.id === a.subId)!;
+  a.status = "completada";
+  s.spentThisMonth = round2(s.spentThisMonth + (a.finalAmount ?? a.quote.total));
+  const prev = sub.nextCharge;
+  sub.nextCharge = addOneCycle(sub.nextCharge < s.today ? s.today : sub.nextCharge, sub.billingDay);
+  sub.status = sub.status === "pago_fallido" ? "rescatada" : sub.status;
+  sub.lastOrderId = a.orderId;
+  log("agente", `Ciclo cobrado: ${sub.name}`, `Orden ${a.orderId} · ${a.finalAmount}. Siguiente cobro: ${sub.nextCharge} (antes ${prev}).`);
+}
+
+/** Polling de checkouts que esperan confirmación humana en Reap. Una lectura por aprobación por llamada. */
+export async function refreshPendingCheckouts() {
+  const s = state();
+  for (const a of s.approvals.filter((x) => x.status === "confirmar_en_reap" && x.checkoutId)) {
+    const c: any = await reapApi.getCheckout(a.checkoutId!);
+    if (c.status === "COMPLETED") {
+      a.orderId = c.orderId || c.order?.id || c.id;
+      a.finalAmount = amt(c.finalAmount) || amt(c.amount) || a.quote.total;
+      log("reap", `Checkout ${String(c.id).slice(0, 8)}… → COMPLETED`, `Orden ${a.orderId}`);
+      finalize(a);
+    } else if (["FAILED", "CANCELED", "CANCELLED", "EXPIRED"].includes(c.status)) {
+      a.status = "error";
+      a.error = `Reap: checkout ${c.status}`;
+      log("error", `Checkout ${c.status}`, a.error);
+    }
+  }
 }
 
 export async function registerCard(origin: string) {
@@ -171,4 +197,18 @@ export async function adoptEnrollment(id: string) {
   s.enrollment = { id: e.id, status: e.status, url: e.nextAction?.url, expiresAt: e.nextAction?.expiresAt };
   log("reap", `Enrollment ${id.slice(0, 8)}… adoptada: ${e.status}`);
   return s.enrollment;
+}
+
+/** Tras un reinicio el estado en memoria se pierde: recupera UNA vez la enrollment ACTIVE más reciente desde Reap. */
+const rg = globalThis as unknown as { __orkEnrRecovered?: boolean };
+export async function recoverActiveEnrollment() {
+  const s = state();
+  if (s.enrollment || s.demoMode || rg.__orkEnrRecovered) return;
+  rg.__orkEnrRecovered = true;
+  const list: any = await reapApi.listEnrollments();
+  const active = (list.items || []).filter((e: any) => e.status === "ACTIVE").sort((a: any, b: any) => b.createdAt.localeCompare(a.createdAt))[0];
+  if (!active) return;
+  s.enrollment = { id: active.id, status: "ACTIVE" };
+  const pm = active.paymentMethod;
+  log("reap", "Tarjeta recuperada de Reap", `Enrollment ${active.id.slice(0, 8)}… ACTIVE${pm?.last4 ? ` · ${pm.network} •${pm.last4}` : ""}`);
 }

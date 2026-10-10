@@ -117,7 +117,7 @@ export function createCheckout(quoteId: string, enrollmentId: string, returnUrl:
     method: "POST",
     idempotent: true,
     simulateCheckout: true,
-    retries: 1,
+    retries: 0, // un checkout nunca se reintenta solo: podría duplicar el cobro
     body: { quoteId, enrollmentId, presentation: { type: "REDIRECT", returnUrl } },
   });
 }
