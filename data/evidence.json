@@ -1,0 +1,13 @@
+[
+  {
+    "subId": "snacks",
+    "merchant": "exoticsnacks.com",
+    "orderId": "ord_01M4HWYGR6SK4RZ4NJZGR98WH5",
+    "checkoutId": "093be88c-5c79-4296-b23c-453965fd5499",
+    "enrollmentId": "e8699e2a-e948-4650-bb00-6a88d3e21229",
+    "status": "COMPLETED",
+    "finalAmount": 12.31,
+    "currency": "USD",
+    "at": "2026-10-10T03:20:00Z"
+  }
+]

@@ -5,6 +5,7 @@ import * as reapApi from "./reap";
 import { ReapError } from "./reap";
 import { addOneCycle, round2 } from "./orchestrator";
 import { Approval, QuoteView, log, state } from "./store";
+import { addEvidence } from "./evidence";
 
 const RETURN_URL = "https://example.com/ork/orders/done";
 
@@ -143,7 +144,10 @@ function finalize(a: Approval) {
   sub.nextCharge = addOneCycle(sub.nextCharge < s.today ? s.today : sub.nextCharge, sub.billingDay);
   sub.status = sub.status === "pago_fallido" ? "rescatada" : sub.status;
   sub.lastOrderId = a.orderId;
-  log("agente", `Ciclo cobrado: ${sub.name}`, `Orden ${a.orderId} · ${a.finalAmount}. Siguiente cobro: ${sub.nextCharge} (antes ${prev}).`);
+  log("agente", `Ciclo cobrado: ${sub.name}`, `Orden ${a.orderId} · $${a.finalAmount} USD. Siguiente cobro: ${sub.nextCharge} (antes ${prev}).`);
+  if (!a.quote.simulated && a.orderId && a.checkoutId) {
+    addEvidence({ subId: sub.id, merchant: sub.merchant, orderId: a.orderId, checkoutId: a.checkoutId, enrollmentId: s.enrollment?.id, status: "COMPLETED", finalAmount: a.finalAmount ?? a.quote.total, currency: a.quote.currency, at: new Date().toISOString() });
+  }
 }
 
 /** Polling de checkouts que esperan confirmación humana en Reap. Una lectura por aprobación por llamada. */
@@ -154,7 +158,7 @@ export async function refreshPendingCheckouts() {
     if (c.status === "COMPLETED") {
       a.orderId = c.orderId || c.order?.id || c.id;
       a.finalAmount = amt(c.finalAmount) || amt(c.amount) || a.quote.total;
-      log("reap", `Checkout ${String(c.id).slice(0, 8)}… → COMPLETED`, `Orden ${a.orderId}`);
+      log("reap", `Checkout ${String(c.id).slice(0, 8)}… → COMPLETED`, `Orden ${a.orderId} · finalAmount $${a.finalAmount} USD`);
       finalize(a);
     } else if (["FAILED", "CANCELED", "CANCELLED", "EXPIRED"].includes(c.status)) {
       a.status = "error";

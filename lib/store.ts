@@ -1,5 +1,6 @@
 // Estado en memoria (sin base de datos). Vive en globalThis para sobrevivir al hot reload de Next.
 import { Subscription, isSafeDay } from "./orchestrator";
+import { readEvidence } from "./evidence";
 
 export type LogKind = "agente" | "reap" | "usuario" | "regla" | "error" | "sistema";
 
@@ -162,6 +163,7 @@ export function publicState() {
     chat: s.chat,
     metrics: metrics(s),
     llm: llmProvider(),
+    evidence: readEvidence().slice(0, 5),
   };
 }
 

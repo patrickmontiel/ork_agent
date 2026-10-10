@@ -16,6 +16,7 @@ type St = {
   enrollment: { id: string; status: string; url?: string; expiresAt?: string; simulated?: boolean } | null;
   subs: Sub[]; approvals: Approval[]; log: LogE[]; chat: { role: string; content: string }[];
   metrics: { total: number; riskyWithoutOrk: number; riskyWithOrk: number }; llm: string;
+  evidence: { subId: string; merchant: string; orderId: string; checkoutId: string; status: string; finalAmount: number; currency: string; at: string }[];
 };
 
 const KIND: Record<string, string> = {
@@ -97,6 +98,12 @@ export default function Home() {
           <button className="btn-ghost" onClick={() => act("reset")}>Reiniciar</button>
         </div>
       </header>
+
+      {st.evidence?.[0] && (
+        <section className="panel border-emerald-400/40 p-3 text-sm" aria-label="Evidencia de checkout real">
+          <b className="text-emerald-300">Checkout real en Reap · COMPLETED</b> · {st.evidence[0].merchant} · orderId <code>{st.evidence[0].orderId}</code> · finalAmount <b>${st.evidence[0].finalAmount.toFixed(2)} {st.evidence[0].currency}</b> · checkout <code>{st.evidence[0].checkoutId.slice(0, 8)}…</code>
+        </section>
+      )}
 
       {/* Indicadores */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
