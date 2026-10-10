@@ -164,6 +164,7 @@ export function publicState() {
     metrics: metrics(s),
     llm: llmProvider(),
     evidence: readEvidence().slice(0, 5),
+    baselineDays: s.baselineDays,
   };
 }
 
