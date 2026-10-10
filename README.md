@@ -5,6 +5,18 @@
 
 Reap x AIBM Agentic Buildathon · Track: *Most Worthwhile Problem (Best Use of Latest Technology)*
 
+## Entrega
+
+| | |
+|---|---|
+| **Equipo** | Argos |
+| **Proyecto** | Ork Agent |
+| **Categoría** | Most Worthwhile Problem (incluye Best Use of Latest Technology) |
+| **En una línea** | Un agente de IA que mueve tus fechas de cobro después de tu quincena, solo hacia adelante, y cobra cada ciclo con Reap Agentic Payments con tu aprobación. |
+| **Repo** | REPO_URL_PENDIENTE |
+
+**Cómo usamos Reap Agentic.** Cada suscripción es un pedido recurrente a un merchant real del sandbox (exoticsnacks.com, coffeeam.com, packagefreeshop.com), identificado con el `var_…` que devuelve `POST /agentic/products/search`. La tarjeta se registra con `POST /agentic/enrollments` (source `EXTERNAL`): la persona la captura en la página alojada de Reap y la app hace polling hasta `ACTIVE`, así que **el agente nunca ve datos de tarjeta**. En cada ciclo, el agente llama la tool `run_billing_cycle`, que pide `POST /agentic/quotes` y muestra una tarjeta de aprobación con producto, envío, impuestos y total. Solo si la persona pulsa **Aprobar** se hace `POST /agentic/checkouts`; Reap responde `REQUIRES_ACTION` y la persona **confirma el pago en Reap**, y la app hace polling de `GET /agentic/checkouts/{id}` hasta `COMPLETED` con `orderId` y `finalAmount`. Los **límites de gasto** (por cobro y mensual) viven en el código del servidor: si una cotización los supera, la aprobación queda bloqueada y **el LLM no puede cambiarlos**. Evidencia real: orden `ord_01M4HWYGR6SK4RZ4NJZGR98WH5`, checkout `093be88c-5c79-4296-b23c-453965fd5499`, $12.31 USD, COMPLETED (`data/evidence.json`).
+
 ## El problema
 
 - Entre el 5 % y el 14 % de los cobros recurrentes fallan al primer intento, y del 20 % al 40 % del churn es **involuntario**.
@@ -76,12 +88,14 @@ npm test
 
 **Modo demo:** el botón de arriba cambia a respuestas guardadas, marcadas como **SIMULADO**, por si el sandbox falla en vivo.
 
-## Guion del demo (≈2 min)
+## Guion del demo (3 minutos)
 
-1. **Problema** (15 s): "Mis tres suscripciones caen antes de quincena: 3/3 en rojo."
-2. **Chat**: "Mi quincena cae el 15 y el 30". El agente propone 16, 16 y 1 (solo hacia adelante, hueco absorbido por el merchant). Respondes "sí" y el indicador pasa a **0/3**.
-3. **Cobro con Reap**: "Cobra el café ahora". El registro muestra `POST /agentic/quotes` y aparece la tarjeta de aprobación con envío, impuestos y total reales.
-4. **Aprobar**: `POST /agentic/checkouts` devuelve COMPLETED, con número de orden; el siguiente cobro avanza un ciclo.
-5. **Control de gasto**: ejecuta varios ciclos hasta chocar con el tope mensual y la aprobación queda bloqueada.
-6. **Rescate**: "Simular pago fallido" en limpieza y luego "rescata limpieza después de mi quincena". El agente la reinicia el día 1 o 16, condona los días bloqueados y pide aprobación para reintentar.
-7. **Cierre**: "El agente no es un chatbot de compras: es el que decide *cuándo* cobrar para que el cobro pase, y nunca cobra sin ti."
+1. **Problema (0:00–0:25).** "Entre el 20 y el 40 % del churn es involuntario: el cobro cae antes de quincena. Mira el indicador: mis 3 suscripciones caen antes de quincena, 3/3."
+2. **"Mi quincena cae el 15 y el 30" (0:25–0:50).** Escríbelo en el chat. En el registro se ven las tools `propose_date_change`: café y snacks al 16, limpieza al 1. El agente explica el hueco y quién lo absorbe.
+3. **Solo hacia adelante (0:50–1:15).** Responde "Sí". El indicador cae de **3/3 a 0/3** y el calendario muestra las flechas de la fecha original a la nueva, nunca hacia atrás. Nadie canceló nada.
+4. **Ciclo con cotización real (1:15–1:45).** "Ejecutar ciclo ahora" en snacks. En el registro aparece `POST /agentic/quotes` y una tarjeta con producto, envío, impuestos, total y el % del límite de gasto.
+5. **Aprobación (1:45–2:05).** "El agente cotiza, pero no puede cobrar." Pulsa **Aprobar**: aparece `POST /agentic/checkouts` con `REQUIRES_ACTION`.
+6. **Confirmación en Reap (2:05–2:30).** "Confirmar pago en Reap ↗", OTP, y la tarjeta pasa a **COMPLETED** con `orderId` y `finalAmount`; el siguiente cobro avanza un ciclo.
+7. **Rescate tras pago fallido (2:30–3:00).** Sugerencia "Falló el café": el agente reinicia la suscripción después de la quincena, condona los días bloqueados y pide aprobación para reintentar. Cierre: "Ork no es un chatbot de compras: decide *cuándo* cobrar para que el cobro pase, y nunca cobra sin ti."
+
+> Respaldo: si el sandbox falla en vivo, el botón **Modo demo** usa respuestas guardadas, todas marcadas como SIMULADO.
