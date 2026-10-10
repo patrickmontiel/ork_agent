@@ -75,19 +75,6 @@ El catálogo del sandbox no tiene suscripciones reales, así que cada "suscripci
 - Sin llave, un **motor determinístico por reglas** llama exactamente las mismas tools (es el fallback para la demo).
 - La lógica de fechas (`lib/orchestrator.ts`) es pura y tiene tests: `npm test`.
 
-## Correr
-
-```bash
-npm install
-# .env (NO se sube a git):
-# REAP_API_KEY=...  REAP_BASE_URL=https://sg.sandbox.api.reap.global  REAP_VERSION=2025-02-14
-# opcional: ANTHROPIC_API_KEY=... o OPENAI_API_KEY=...
-npm run dev
-npm test
-```
-
-**Modo demo:** el botón de arriba cambia a respuestas guardadas, marcadas como **SIMULADO**, por si el sandbox falla en vivo.
-
 ## Guion del demo (3 minutos)
 
 1. **Problema (0:00–0:25).** "Entre el 20 y el 40 % del churn es involuntario: el cobro cae antes de quincena. Mira el indicador: mis 3 suscripciones caen antes de quincena, 3/3."
@@ -99,6 +86,17 @@ npm test
 7. **Rescate tras pago fallido (2:30–3:00).** Sugerencia "Falló el café": el agente reinicia la suscripción después de la quincena, condona los días bloqueados y pide aprobación para reintentar. Cierre: "Ork no es un chatbot de compras: decide *cuándo* cobrar para que el cobro pase, y nunca cobra sin ti."
 
 > Respaldo: si el sandbox falla en vivo, el botón **Modo demo** usa respuestas guardadas, todas marcadas como SIMULADO.
+
+## Visión: de este demo a Ork en producción
+
+Hoy, el agente orquesta las fechas de pedidos recurrentes sobre el sandbox de Reap. En producción, Ork se integra como un botón **"Pagar con Ork: elige tu fecha"** en el checkout del merchant (Stripe, Conekta, Mercado Pago), con un **panel B2B** que mide menos churn involuntario y más éxito en el primer cobro.
+
+El agente mantiene las mismas reglas:
+
+- La fecha solo avanza.
+- Se condona lo bloqueado.
+- Rescate tras un pago fallido.
+- Cada cobro requiere la confirmación del usuario mediante Reap Agentic Payments.
 
 ## Cómo correrlo
 
@@ -114,8 +112,13 @@ REAP_BASE_URL=https://sg.sandbox.api.reap.global
 REAP_VERSION=2025-02-14
 ```
 
+Opcional: `ANTHROPIC_API_KEY` u `OPENAI_API_KEY` para que el agente use un LLM; sin llave usa el motor de reglas con las mismas tools.
+
 ```bash
 npm run dev
+npm test   # tests de la lógica de fechas
 ```
 
 Abre http://localhost:3000 (o el puerto que indique Next) y registra la tarjeta en la página segura de Reap antes de aprobar un cobro.
+
+**Modo demo:** el botón de la barra superior de la app cambia a respuestas guardadas, marcadas como **SIMULADO**, por si el sandbox falla en vivo.
