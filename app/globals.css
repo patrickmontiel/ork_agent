@@ -2,26 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #0b0d10;
+  color: #e7e9ee;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
+.panel { @apply rounded-2xl border border-white/10 bg-white/[0.03]; }
+.btn { @apply rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed; }
+.btn-primary { @apply btn bg-emerald-400 text-black hover:bg-emerald-300; }
+.btn-ghost { @apply btn border border-white/15 hover:bg-white/10; }
+.btn-danger { @apply btn border border-rose-400/40 text-rose-300 hover:bg-rose-400/10; }

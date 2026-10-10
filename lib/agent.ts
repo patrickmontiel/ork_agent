@@ -207,13 +207,15 @@ async function runRules(text: string): Promise<string> {
     return "Descarté las propuestas. Tus fechas siguen igual.";
   }
 
-  // Pago fallido
-  if (/fall|rechaz|no pas|sin fondos/.test(t) && !/rescat/.test(t)) {
-    const id = subs.length === s.subs.length ? "cafe" : subs[0];
-    await runTool("simulate_failed_payment", { sub_id: id });
+  // Rescate o pago fallido
+  const failed = s.subs.find((x) => x.status === "pago_fallido" && subs.includes(x.id));
+  if (/rescat/.test(t) || (/fall|rechaz|no pas|sin fondos/.test(t))) {
+    const id = /rescat/.test(t) && failed ? failed.id : subs.length === s.subs.length ? "cafe" : subs[0];
+    if (/rescat/.test(t) && !failed) return "No hay ninguna suscripción con pago fallido que rescatar.";
+    if (!/rescat/.test(t)) await runTool("simulate_failed_payment", { sub_id: id });
     const sub = s.subs.find((x) => x.id === id)!;
     if (sub.merchantType !== "corte_duro") return `${sub.name} falló, pero ${sub.merchant} es merchant con gracia: se cobran los días consumidos y no aplica el rescate.`;
-    const day = bestDayAfterPayday(s.paydays) + (s.paydays[0] === 15 ? 0 : 0);
+    const day = bestDayAfterPayday(s.paydays);
     const r = await runTool("rescue_forward", { sub_id: id, target_day: day });
     if (r.error) return r.error;
     const c = await runTool("run_billing_cycle", { sub_id: id, reason: `Reintento tras rescate: nueva fecha ${r.newDate}, ${r.blockedDays} días condonados.` });
@@ -240,7 +242,7 @@ async function runRules(text: string): Promise<string> {
     day = (Number(corte[1]) % 31) + 1;
     why = `el día después de tu corte (${corte[1]})`;
   } else if (/quincena/.test(t)) {
-    if (nums.length) s.paydays = [...new Set(nums)].sort((a, b) => a - b);
+    if (nums.length) s.paydays = Array.from(new Set(nums)).sort((a, b) => a - b);
     day = bestDayAfterPayday(s.paydays);
     why = `justo después de tu quincena del ${s.paydays[0]}`;
     log("usuario", `Quincenas: día ${s.paydays.join(" y ")}`);
@@ -250,10 +252,19 @@ async function runRules(text: string): Promise<string> {
   }
   if (day) {
     const lines: string[] = [];
+    const perSub = /quincena/.test(t) && !corte;
+    if (perSub) why = "justo después de la quincena más cercana";
     for (const id of subs) {
-      const p = await runTool("propose_date_change", { sub_id: id, target_day: day });
+      // Con quincenas: para cada suscripción, el día post-quincena con el menor hueco hacia adelante.
+      let target = day;
+      if (perSub) {
+        const sub = s.subs.find((x) => x.id === id)!;
+        const candidates = s.paydays.map((p) => (p >= 30 ? 1 : p + 1));
+        target = candidates.sort((a, b) => proposeDateChange(sub, a, s.today).gapDays - proposeDateChange(sub, b, s.today).gapDays)[0];
+      }
+      const p = await runTool("propose_date_change", { sub_id: id, target_day: target });
       if (p.error) lines.push(p.error);
-      else if (p.gapDays === 0) { delete proposals()[id]; lines.push(`${state().subs.find((x) => x.id === id)!.name} ya cae el ${day}.`); }
+      else if (p.gapDays === 0) { delete proposals()[id]; lines.push(`${state().subs.find((x) => x.id === id)!.name} ya cae el ${target}.`); }
       else lines.push(`${state().subs.find((x) => x.id === id)!.name}: ${p.fromDate} → ${p.toDate} (+${p.gapDays} días, el merchant absorbe $${p.proratedAmount})`);
     }
     const any = Object.keys(proposals()).length > 0;
