@@ -49,7 +49,8 @@ export async function reap<T = any>(path: string, opts: CallOpts = {}): Promise<
       try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text.slice(0, 300) }; }
       if (res.ok) return json as T;
       const code = json?.code || json?.error?.code || `HTTP_${res.status}`;
-      const msg = json?.message || json?.error?.message || `Reap respondió ${res.status}`;
+      const detail = json?.detail ?? json?.details ?? json?.errors;
+      const msg = (json?.message || json?.error?.message || `Reap respondió ${res.status}`) + (detail ? ` · ${JSON.stringify(detail).slice(0, 200)}` : "");
       const err = new ReapError(res.status, code, msg, json);
       // Reintenta solo errores transitorios conocidos del sandbox.
       const retryable = res.status === 503 || res.status === 502 || res.status === 429 || code === "AGENTIC_REQUEST_REJECTED";

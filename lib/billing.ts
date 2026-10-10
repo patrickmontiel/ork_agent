@@ -146,7 +146,9 @@ export async function registerCard(origin: string) {
     return s.enrollment;
   }
   log("reap", "POST /agentic/enrollments", "source EXTERNAL · la tarjeta la captura Reap, Ork y el agente nunca la ven");
-  const e: any = await reapApi.createEnrollment(`${origin}/?card=added`);
+  // Reap exige https en returnUrl; en local usamos una URL neutra (la app detecta ACTIVE por polling).
+  const returnUrl = origin.startsWith("https://") ? `${origin}/?card=added` : "https://example.com/ork/cards/added";
+  const e: any = await reapApi.createEnrollment(returnUrl);
   s.enrollment = { id: e.id, status: e.status, url: e.nextAction?.url, expiresAt: e.nextAction?.expiresAt };
   log("reap", `Enrollment ${e.status}`, "Abre la página segura de Reap para capturar la tarjeta (dura ~15 min).");
   return s.enrollment;
