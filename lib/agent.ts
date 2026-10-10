@@ -131,7 +131,7 @@ Reglas que DEBES respetar:
 - Rescate hacia adelante solo tras pago fallido y solo para corte duro.
 - Fechas buenas: 16 (post-quincena 15), 1 (post-30), o el día después del corte de tarjeta.
 Flujo: para cambiar fechas llama propose_date_change por cada suscripción, explica en 1-2 frases y pide confirmación; cuando el usuario confirme, llama confirm_date_change. Para cobrar usa run_billing_cycle (crea una tarjeta de aprobación; no digas que ya se cobró). Tras rescue_forward, llama run_billing_cycle.
-Responde en español de México, breve (máx. 4 frases), con montos en USD.`;
+Responde en español de México con frases cortas y simples (máx. 3), sin jerga técnica: no digas enrollment, quote, checkout, merchant, dunning ni prorrata. Montos en USD.`;
 }
 
 // ---------- Anthropic ----------
@@ -180,6 +180,12 @@ async function runOpenAI(): Promise<string> {
 }
 
 // ---------- Fallback determinístico (mismas tools) ----------
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+/** "2026-10-16" → "16 de oct" */
+function dia(iso: string): string {
+  const [, m, d] = iso.split("-").map(Number);
+  return `${d} de ${MESES[m - 1]}`;
+}
 function targetSubs(text: string): string[] {
   const t = text.toLowerCase();
   const ids: string[] = [];
@@ -199,27 +205,28 @@ async function runRules(text: string): Promise<string> {
   if (pending.length && /^(si|sí|dale|confirm|ok|va|hazlo|aplica|claro)/.test(t.trim())) {
     for (const p of pending) await runTool("confirm_date_change", { sub_id: p.subId });
     const m = state();
-    return `Hecho. ${pending.map((p) => `${m.subs.find((x) => x.id === p.subId)!.name} → ${p.toDate}`).join("; ")}. Ningún cobro cae antes de quincena y no cancelaste nada. ¿Ejecuto el próximo ciclo con Reap?`;
+    void m;
+    return `Listo. Ya ningún cobro cae antes de tu quincena, y no cancelaste nada.\nAhora puedes cobrar con Reap: elige una suscripción y pulsa “Cobrar ahora”.`;
   }
   if (pending.length && /^(no|cancela|olvidalo)/.test(t.trim())) {
     g.__orkProposals = {};
     log("usuario", "Propuestas descartadas");
-    return "Descarté las propuestas. Tus fechas siguen igual.";
+    return "Va, no cambio nada. Tus fechas siguen igual.";
   }
 
   // Rescate o pago fallido
   const failed = s.subs.find((x) => x.status === "pago_fallido" && subs.includes(x.id));
   if (/rescat/.test(t) || (/fall|rechaz|no pas|sin fondos/.test(t))) {
     const id = /rescat/.test(t) && failed ? failed.id : subs.length === s.subs.length ? "cafe" : subs[0];
-    if (/rescat/.test(t) && !failed) return "No hay ninguna suscripción con pago fallido que rescatar.";
+    if (/rescat/.test(t) && !failed) return "No hay ningún pago fallido que rescatar.";
     if (!/rescat/.test(t)) await runTool("simulate_failed_payment", { sub_id: id });
     const sub = s.subs.find((x) => x.id === id)!;
-    if (sub.merchantType !== "corte_duro") return `${sub.name} falló, pero ${sub.merchant} es merchant con gracia: se cobran los días consumidos y no aplica el rescate.`;
+    if (sub.merchantType !== "corte_duro") return `El pago de ${sub.name.toLowerCase()} falló. Esta tienda cobra los días que ya usaste, así que no puedo moverlo sin costo.`;
     const day = bestDayAfterPayday(s.paydays);
     const r = await runTool("rescue_forward", { sub_id: id, target_day: day });
     if (r.error) return r.error;
     const c = await runTool("run_billing_cycle", { sub_id: id, reason: `Reintento tras rescate: nueva fecha ${r.newDate}, ${r.blockedDays} días condonados.` });
-    return `El cobro de ${sub.name} falló y el dunning se agotó. En vez de perderte como cliente, lo rescaté hacia adelante al ${r.newDate} (día ${day}, después de tu quincena) y condoné ${r.blockedDays} días bloqueados. Pedí una cotización a Reap: $${c.total} USD. Apruébala en la tarjeta para reintentar.`;
+    return `El pago de ${sub.name.toLowerCase()} falló. Lo moví al ${dia(r.newDate)}, después de tu quincena, y no te cobro los ${r.blockedDays} días perdidos.\nAprueba el cobro de $${c.total} para reintentar.`;
   }
 
   // Cobrar / ejecutar ciclo
@@ -228,9 +235,9 @@ async function runRules(text: string): Promise<string> {
     for (const id of subs.slice(0, 3)) {
       const r = await runTool("run_billing_cycle", { sub_id: id, reason: "Pedido por el usuario desde el chat." });
       const n = s.subs.find((x) => x.id === id)!.name;
-      out.push(r.error ? `${n}: ${r.error}` : `${n} $${r.total}${r.status === "bloqueada" ? " (bloqueado por límite)" : ""}`);
+      out.push(r.error ? `${n.toLowerCase()}: no pude obtener el precio` : `${n.toLowerCase()} cuesta $${r.total}${r.status === "bloqueada" ? ", pero pasa tu límite de gasto" : ""}`);
     }
-    return `Pedí cotización a Reap: ${out.join("; ")}. Nada se cobra hasta que apruebes cada tarjeta.`;
+    return `Le pregunté el precio a Reap: ${out.join("; ")}.\nNo cobro nada hasta que lo apruebes.`;
   }
 
   // Cambio de fecha: corte de tarjeta, quincena o día explícito
@@ -240,11 +247,11 @@ async function runRules(text: string): Promise<string> {
   const nums = (t.match(/\d{1,2}/g) || []).map(Number).filter((n) => n >= 1 && n <= 31);
   if (corte) {
     day = (Number(corte[1]) % 31) + 1;
-    why = `el día después de tu corte (${corte[1]})`;
+    why = `el día después de tu corte (día ${corte[1]})`;
   } else if (/quincena/.test(t)) {
     if (nums.length) s.paydays = Array.from(new Set(nums)).sort((a, b) => a - b);
     day = bestDayAfterPayday(s.paydays);
-    why = `justo después de tu quincena del ${s.paydays[0]}`;
+    why = "justo después de tu quincena";
     log("usuario", `Quincenas: día ${s.paydays.join(" y ")}`);
   } else if (nums.length) {
     day = nums[nums.length - 1];
@@ -253,7 +260,7 @@ async function runRules(text: string): Promise<string> {
   if (day) {
     const lines: string[] = [];
     const perSub = /quincena/.test(t) && !corte;
-    if (perSub) why = "justo después de la quincena más cercana";
+    if (perSub) why = "justo después de tu quincena";
     for (const id of subs) {
       // Con quincenas: para cada suscripción, el día post-quincena con el menor hueco hacia adelante.
       let target = day;
@@ -264,11 +271,11 @@ async function runRules(text: string): Promise<string> {
       }
       const p = await runTool("propose_date_change", { sub_id: id, target_day: target });
       if (p.error) lines.push(p.error);
-      else if (p.gapDays === 0) { delete proposals()[id]; lines.push(`${state().subs.find((x) => x.id === id)!.name} ya cae el ${target}.`); }
-      else lines.push(`${state().subs.find((x) => x.id === id)!.name}: ${p.fromDate} → ${p.toDate} (+${p.gapDays} días, el merchant absorbe $${p.proratedAmount})`);
+      else if (p.gapDays === 0) { delete proposals()[id]; lines.push(`${state().subs.find((x) => x.id === id)!.name}: ya se cobra el día ${target}`); }
+      else lines.push(`${state().subs.find((x) => x.id === id)!.name}: del ${dia(p.fromDate)} al ${dia(p.toDate)}`);
     }
     const any = Object.keys(proposals()).length > 0;
-    return `Propongo cobrar ${why}, solo hacia adelante:\n• ${lines.join("\n• ")}\n${any ? "¿Confirmo los cambios? (sí / no)" : ""}`.trim();
+    return `Te propongo cobrar ${why}:\n• ${lines.join("\n• ")}\n${any ? "Solo muevo fechas hacia adelante y no pagas de más. ¿Lo aplico?" : ""}`.trim();
   }
 
   if (/lista|suscrip|que tengo|estado/.test(t)) {
@@ -276,7 +283,7 @@ async function runRules(text: string): Promise<string> {
     return r.subscriptions.map((x: any) => `${x.name}: día ${x.billingDay} (${x.safeDay ? "seguro" : "antes de quincena"}), próximo ${x.nextCharge}, $${x.amountUSD}`).join("\n");
   }
 
-  return "Puedo mover tus fechas de cobro (\"cobra todo el día 16\", \"mi quincena cae el 15 y el 30\", \"muévelo después de mi corte, día 8\"), ejecutar un ciclo con Reap (\"cobra el café ahora\") o simular un pago fallido (\"falló el café\").";
+  return "Dime cuándo te pagan (por ejemplo: “mi quincena cae el 15 y el 30”) y muevo tus cobros. También puedo cobrar una suscripción ahora o rescatar un pago fallido.";
 }
 
 export async function chat(text: string): Promise<{ reply: string; provider: string }> {

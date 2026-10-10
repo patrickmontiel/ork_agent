@@ -165,6 +165,8 @@ export function publicState() {
     llm: llmProvider(),
     evidence: readEvidence().slice(0, 5),
     baselineDays: s.baselineDays,
+    // Propuestas de cambio de fecha esperando que el usuario diga "sí" (solo lectura)
+    pendingProposals: Object.values((globalThis as unknown as { __orkProposals?: Record<string, unknown> }).__orkProposals ?? {}),
   };
 }
 
