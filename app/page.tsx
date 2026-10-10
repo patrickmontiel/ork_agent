@@ -112,7 +112,7 @@ export default function Home() {
       {/* Frase + indicador */}
       <section className="mt-8 text-center md:mt-12">
         <h1 className="mx-auto max-w-3xl text-balance text-3xl font-bold leading-tight tracking-[-0.02em] text-white md:text-5xl">
-          Ork mueve tus cobros recurrentes al día en que sí puedes pagar
+          Pagas suscripciones que quieres. Ahora se cobran el día que quieres.
         </h1>
         <div className="mt-8" aria-live="polite">
           <div className="text-sm font-medium text-violet-100/80 md:text-base">Cobros que caen antes de tu quincena</div>
