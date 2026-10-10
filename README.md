@@ -88,15 +88,7 @@ El catálogo del sandbox no tiene suscripciones reales, así que cada "suscripci
 > Respaldo: si el sandbox falla en vivo, el botón **Modo demo** usa respuestas guardadas, todas marcadas como SIMULADO.
 
 ## Visión: de este demo a Ork en producción
-
-Hoy, el agente orquesta las fechas de pedidos recurrentes sobre el sandbox de Reap. En producción, Ork se integra como un botón **"Pagar con Ork: elige tu fecha"** en el checkout del merchant (Stripe, Conekta, Mercado Pago), con un **panel B2B** que mide menos churn involuntario y más éxito en el primer cobro.
-
-El agente mantiene las mismas reglas:
-
-- La fecha solo avanza.
-- Se condona lo bloqueado.
-- Rescate tras un pago fallido.
-- Cada cobro requiere la confirmación del usuario mediante Reap Agentic Payments.
+Hoy el agente orquesta fechas de pedidos recurrentes sobre el sandbox de Reap. En producción, Ork se integra como un botón "Pagar con Ork: elige tu fecha" en el checkout del merchant (Stripe, Conekta, Mercado Pago), con un panel B2B que mide menos churn involuntario y más éxito en el primer cobro. El agente sigue las mismas reglas: la fecha solo avanza, se condona lo bloqueado, rescate tras un pago fallido, y cada cobro requiere la confirmación del usuario mediante Reap Agentic Payments.
 
 ## Cómo correrlo
 
