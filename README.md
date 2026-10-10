@@ -13,7 +13,7 @@ Reap x AIBM Agentic Buildathon · Track: *Most Worthwhile Problem (Best Use of L
 | **Proyecto** | Ork Agent |
 | **Categoría** | Most Worthwhile Problem (incluye Best Use of Latest Technology) |
 | **En una línea** | Un agente de IA que mueve tus fechas de cobro después de tu quincena, solo hacia adelante, y cobra cada ciclo con Reap Agentic Payments con tu aprobación. |
-| **Repo** | REPO_URL_PENDIENTE |
+| **Repo** | https://github.com/patrickmontiel/ork_agent |
 
 **Cómo usamos Reap Agentic.** Cada suscripción es un pedido recurrente a un merchant real del sandbox (exoticsnacks.com, coffeeam.com, packagefreeshop.com), identificado con el `var_…` que devuelve `POST /agentic/products/search`. La tarjeta se registra con `POST /agentic/enrollments` (source `EXTERNAL`): la persona la captura en la página alojada de Reap y la app hace polling hasta `ACTIVE`, así que **el agente nunca ve datos de tarjeta**. En cada ciclo, el agente llama la tool `run_billing_cycle`, que pide `POST /agentic/quotes` y muestra una tarjeta de aprobación con producto, envío, impuestos y total. Solo si la persona pulsa **Aprobar** se hace `POST /agentic/checkouts`; Reap responde `REQUIRES_ACTION` y la persona **confirma el pago en Reap**, y la app hace polling de `GET /agentic/checkouts/{id}` hasta `COMPLETED` con `orderId` y `finalAmount`. Los **límites de gasto** (por cobro y mensual) viven en el código del servidor: si una cotización los supera, la aprobación queda bloqueada y **el LLM no puede cambiarlos**. Evidencia real: orden `ord_01M4HWYGR6SK4RZ4NJZGR98WH5`, checkout `093be88c-5c79-4296-b23c-453965fd5499`, $12.31 USD, COMPLETED (`data/evidence.json`).
 
@@ -99,3 +99,23 @@ npm test
 7. **Rescate tras pago fallido (2:30–3:00).** Sugerencia "Falló el café": el agente reinicia la suscripción después de la quincena, condona los días bloqueados y pide aprobación para reintentar. Cierre: "Ork no es un chatbot de compras: decide *cuándo* cobrar para que el cobro pase, y nunca cobra sin ti."
 
 > Respaldo: si el sandbox falla en vivo, el botón **Modo demo** usa respuestas guardadas, todas marcadas como SIMULADO.
+
+## Cómo correrlo
+
+```bash
+npm install
+```
+
+Crea un archivo `.env` en la raíz (está en `.gitignore`, no se sube):
+
+```bash
+REAP_API_KEY=<tu llave sandbox de Reap>
+REAP_BASE_URL=https://sg.sandbox.api.reap.global
+REAP_VERSION=2025-02-14
+```
+
+```bash
+npm run dev
+```
+
+Abre http://localhost:3000 (o el puerto que indique Next) y registra la tarjeta en la página segura de Reap antes de aprobar un cobro.
