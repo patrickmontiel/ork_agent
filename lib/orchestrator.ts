@@ -76,6 +76,25 @@ export function round2(n: number): number {
 }
 
 /**
+ * Días que dura el ciclo que arranca en `from` para una suscripción que cobra
+ * el día `billingDay`. Entre 28 y 31 según el mes — por eso NO se puede
+ * prorratear contra un 30 fijo: en febrero el día sale 10% más caro que en marzo.
+ */
+export function cycleLength(from: string, billingDay: number): number {
+  return daysBetween(from, addOneCycle(from, billingDay));
+}
+
+/**
+ * Costo exacto de `gapDays` días del ciclo que empieza en `from`.
+ * Ork muestra el trade-off en números: si el número está aproximado, la promesa
+ * se rompe cuando llega el cargo real.
+ */
+export function prorate(monthlyAmount: number, gapDays: number, from: string, billingDay: number): number {
+  const cycle = cycleLength(from, billingDay);
+  return round2((monthlyAmount * gapDays) / cycle);
+}
+
+/**
  * Regla de oro de Ork: la fecha solo se mueve HACIA ADELANTE.
  * El siguiente cobro pasa del `nextCharge` actual a la primera fecha con `targetDay` >= esa fecha.
  * El hueco se cubre por adelantado: prorrata de los días extra, que el merchant puede absorber.
@@ -87,7 +106,7 @@ export function proposeDateChange(sub: Subscription, targetDay: number, today: s
   const from = sub.nextCharge < today ? today : sub.nextCharge;
   const to = nextOccurrence(from, targetDay);
   const gapDays = daysBetween(from, to);
-  const proratedAmount = round2((sub.monthlyAmount * gapDays) / 30);
+  const proratedAmount = prorate(sub.monthlyAmount, gapDays, from, sub.billingDay);
   const explanation =
     gapDays === 0
       ? `${sub.name} ya se cobra el día ${targetDay}. No hay cambio.`
@@ -146,9 +165,16 @@ export function isSafeDay(day: number, paydays: number[]): boolean {
   });
 }
 
-/** Mejor día seguro: el día siguiente a la quincena más próxima hacia adelante desde `fromDay`. */
-export function bestDayAfterPayday(paydays: number[]): number {
+/**
+ * Mejor día seguro: el día siguiente a la primera quincena que cae en o después
+ * de `fromDay`. Si ninguna queda por delante en el mes, se envuelve a la primera.
+ *
+ * Antes esta función ignoraba `fromDay` y siempre devolvía `min(paydays) + 1`:
+ * con quincenas [15, 30] contestaba 16 aunque el usuario estuviera a día 20.
+ */
+export function bestDayAfterPayday(paydays: number[], fromDay = 1): number {
+  if (paydays.length === 0) throw new Error("No hay quincenas configuradas.");
   const sorted = [...paydays].sort((a, b) => a - b);
-  const p = sorted[0];
+  const p = sorted.find((d) => d >= fromDay) ?? sorted[0];
   return p >= 31 ? 1 : p + 1;
 }
