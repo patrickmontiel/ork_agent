@@ -6,13 +6,19 @@ export interface ServicioLigero {
   nombre: string;
   emoji: string;
   rol: "puente" | "cerrado" | "no_editable";
-  mecanismo: "cancel_resubscribe" | "pause" | "api" | null;
+  mecanismo: "cancel_resubscribe" | "pause" | "api" | "not_supported" | null;
+  /** Hay adaptador real hoy. Si no, se muestra como "próximamente". */
+  tieneAdaptador: boolean;
   motivoBloqueo: string | null;
 }
 
 export interface Catalogo {
-  /** Protagonistas: Spotify, Netflix, YouTube. Requieren mandato. */
+  /** Con adaptador real hoy: Spotify y Netflix. Requieren mandato. */
   cerrados: ServicioLigero[];
+  /** Mecanismo definido, sin adaptador: "próximamente". */
+  proximamente: ServicioLigero[];
+  /** Sin mecanismo decidido. No se promete nada. */
+  sinMecanismo: ServicioLigero[];
   /** El comercio tiene API. Ork no cancela nada, no hace falta mandato. */
   puente: ServicioLigero[];
   /** No se pueden mover. Se muestran con su motivo, nunca se prometen. */

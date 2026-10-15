@@ -1,6 +1,6 @@
 import { currentUser, sessionUserId } from "@/lib/auth/session";
 import { listCards } from "@/lib/db/repo/cards";
-import { listClosed, listBridge, listBlocked } from "@/lib/db/repo/services";
+import { listPilot, listComingSoon, listUndecided, listBridge, listBlocked } from "@/lib/db/repo/services";
 import { paydays } from "@/lib/db/repo/users";
 import { mailMode } from "@/lib/mailer";
 import Logo from "@/components/brand/Logo";
@@ -29,7 +29,9 @@ export default async function PayPage({
   const user = await currentUser();
 
   const catalogo = {
-    cerrados: listClosed().map(slim),
+    cerrados: listPilot().map(slim),
+    proximamente: listComingSoon().map(slim),
+    sinMecanismo: listUndecided().map(slim),
     puente: listBridge().map(slim),
     bloqueados: listBlocked().map(slim),
   };
@@ -70,13 +72,14 @@ export default async function PayPage({
   );
 }
 
-function slim(s: ReturnType<typeof listClosed>[number]) {
+function slim(s: ReturnType<typeof listPilot>[number]) {
   return {
     id: s.id,
     nombre: s.name,
     emoji: s.emoji ?? "",
     rol: s.role,
-    mecanismo: s.mechanism,
+    mecanismo: s.orchestrable,
+    tieneAdaptador: s.hasPilotAdapter,
     motivoBloqueo: s.blocked_reason,
   };
 }

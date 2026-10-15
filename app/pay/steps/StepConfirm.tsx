@@ -19,7 +19,7 @@ export default function StepConfirm({
   plan: string | null;
   tarjeta: TarjetaLigera | null;
   onBack: () => void;
-  onDone: () => void;
+  onDone: (siguiente: string) => void;
 }) {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export default function StepConfirm({
         setError(data.error ?? "No pudimos guardarlo.");
         return;
       }
-      onDone();
+      onDone(data.siguiente ?? "listo");
     } catch {
       setError("No hay conexión. Inténtalo otra vez.");
     } finally {

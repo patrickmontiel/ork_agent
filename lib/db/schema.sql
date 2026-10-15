@@ -61,11 +61,20 @@ CREATE INDEX IF NOT EXISTS idx_cards_user ON cards (user_id);
 --   'no_editable' → Apple/Google IAP, anuales, contratos con penalización
 -- mechanism para 'cerrado': 'cancel_resubscribe' | 'pause'
 
+-- orchestrable: cómo se movería la fecha.
+--   'pause'              → se pausa y al reanudar queda la fecha nueva (Netflix, Uber One)
+--   'cancel_resubscribe' → se cancela y se vuelve a contratar en la fecha elegida
+--   'api'                → el comercio expone API; Ork solo manda la instrucción
+--   'not_supported'      → no se puede, y blocked_reason dice por qué
+--   NULL                 → todavía sin determinar. No se promete nada.
 CREATE TABLE IF NOT EXISTS services (
-  id            TEXT PRIMARY KEY,   -- 'spotify', 'netflix', 'youtube'
+  id            TEXT PRIMARY KEY,   -- 'spotify', 'netflix', 'youtube_premium'
   name          TEXT NOT NULL,
   role          TEXT NOT NULL CHECK (role IN ('puente', 'cerrado', 'no_editable')),
-  mechanism     TEXT CHECK (mechanism IN ('cancel_resubscribe', 'pause', 'api')),
+  orchestrable  TEXT CHECK (orchestrable IN ('cancel_resubscribe', 'pause', 'api', 'not_supported')),
+  -- ¿Existe adaptador real para el piloto? Solo Spotify y Netflix. El resto se
+  -- muestra como "próximamente": tener mecanismo definido no es tener código.
+  pilot_adapter INTEGER NOT NULL DEFAULT 0,
   -- Por qué no se puede, si role = 'no_editable'. Se muestra al usuario tal cual.
   blocked_reason TEXT,
   -- 'soportado' | 'por_verificar' | 'no_soportado'
@@ -77,15 +86,23 @@ CREATE TABLE IF NOT EXISTS services (
 
 -- Precio público de lista, por servicio y plan. Sirve para detectar promo:
 -- si el usuario paga menos que el público, tiene promo y la pierde al recontratar.
+--
+-- `amount` es NULL cuando no se ha verificado. El detector de promo NO compara
+-- contra un precio nulo: prefiere no opinar antes que opinar mal.
 CREATE TABLE IF NOT EXISTS public_prices (
   id          TEXT PRIMARY KEY,
   service_id  TEXT NOT NULL REFERENCES services (id) ON DELETE CASCADE,
   plan        TEXT NOT NULL,       -- 'individual' | 'duo' | 'familiar' | 'estandar'...
   country     TEXT NOT NULL DEFAULT 'MX',
-  amount      REAL NOT NULL,
+  amount      REAL,                -- NULL = sin verificar
   currency    TEXT NOT NULL DEFAULT 'MXN',
-  checked_at  TEXT NOT NULL,       -- cuándo se verificó por última vez
-  source      TEXT                 -- URL de donde salió
+  -- El precio de lista es promocional y va a volver a subir. Comparar contra él
+  -- haría creer que el usuario NO tiene promo cuando en realidad todos la tienen.
+  is_promo    INTEGER NOT NULL DEFAULT 0,
+  needs_verification INTEGER NOT NULL DEFAULT 0,
+  note        TEXT,
+  checked_at  TEXT NOT NULL,       -- '' si nunca se verificó
+  source      TEXT
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_prices_lookup
@@ -129,6 +146,10 @@ CREATE TABLE IF NOT EXISTS mandates (
   timestamp     TEXT NOT NULL,
   ip            TEXT,
   user_agent    TEXT,
+  -- ¿La persona llegó al final del texto antes de poder aceptar? El botón
+  -- está deshabilitado hasta entonces, así que esto siempre debería ser 1.
+  -- Se guarda igual: si algún día llega un 0, es que alguien saltó el gate.
+  scrolled_to_end INTEGER NOT NULL DEFAULT 0,
   revoked_at    TEXT
 );
 
@@ -149,6 +170,9 @@ WHEN (
   OR OLD.timestamp    IS NOT NEW.timestamp
   OR OLD.ip           IS NOT NEW.ip
   OR OLD.user_agent   IS NOT NEW.user_agent
+  -- La prueba de que la persona leyó el texto es parte del registro, no un
+  -- metadato editable.
+  OR OLD.scrolled_to_end IS NOT NEW.scrolled_to_end
 )
 BEGIN
   SELECT RAISE(ABORT, 'Un mandato es inmutable: solo se puede revocar.');

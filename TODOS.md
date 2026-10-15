@@ -1,31 +1,52 @@
 # Pendientes — Ork v2
 
-## Bloqueantes de fase
+## Precios públicos — verificados 2026-10-15 ✅
 
-### Verificar precios públicos antes de la Fase 3 — **bloqueante**
+Catálogo completo cargado y verificado contra páginas oficiales de México el
+**2026-10-15**. 31 servicios, 50 precios. Fuente de verdad: `lib/db/seed.ts`.
 
-El detector de promo de la Fase 3 compara lo que el usuario paga contra el precio
-de lista. Si el precio de lista está mal, Ork le va a decir a alguien que tiene
-promo cuando no, o al revés — y la decisión de mover la fecha cuelga de ese dato.
+Quedan tres grupos que el detector de promo **no puede usar**, marcados en la
+base para que no se confundan con datos buenos:
 
-Los del seed son **placeholders**, no verificados:
+**Sin precio verificado** — `needs_verification = 1`, `amount` null:
+amazon_prime, xbox_game_pass, duolingo, rappi_pro, meli_plus.
+meli_plus tiene promo temporal desde $49.90; el precio base no está verificado.
 
-| Servicio | Plan | Seed (MXN) | Verificado |
-|---|---|---|---|
-| Spotify | individual | 129 | ☐ |
-| Spotify | duo | 169 | ☐ |
-| Spotify | familiar | 209 | ☐ |
-| Netflix | básico | 119 | ☐ |
-| Netflix | estándar | 219 | ☐ |
-| Netflix | premium | 299 | ☐ |
-| YouTube Premium | individual | 139 | ☐ |
-| YouTube Premium | familiar | 259 | ☐ |
+**El precio de lista ES una promo** — `is_promo = 1`: los tres planes de
+Disney+ son promo de 6 meses y el precio base al que vuelven no está verificado.
+Comparar contra ellos diría que todo el mundo tiene promo, que es lo mismo que
+no decir nada.
 
-Contra las páginas oficiales de **México**, no de otro país ni de comparadores.
-Al actualizar, corre también `checked_at`: `stalePrices()` avisa a los 90 días y
-`/api/health` reporta `precios_sin_verificar`.
+**Falta decidir el mecanismo** — `orchestrable = NULL`: microsoft_365, canva,
+ps_plus, amazon_prime, xbox_game_pass, duolingo, rappi_pro, meli_plus. Aparecen
+en el catálogo pero no se listan como movibles. No se promete nada hasta
+decidirlo.
 
-Fuente de verdad: `lib/db/index.ts` → constante `PRICES`.
+Revisar a los 90 días: `stalePrices()` avisa y `/api/health` lo reporta en
+`precios.rancios`, `precios.sin_verificar` y `precios.son_promo`.
+
+---
+
+## Decisiones pendientes
+
+### Apple Music y Apple TV+ están marcados como `cancel_resubscribe`
+
+Viene de la lista que mandaste, y lo respeté. Pero hay una tensión real con la
+regla de al lado: *"not_supported: cualquier cobro vía Apple/Google IAP"*.
+
+Una suscripción a Apple Music contratada **desde Apple** se gestiona en los
+ajustes de suscripciones de Apple, que es justamente el caso que el propio plan
+describe como no editable desde fuera. Cancelar y recontratar ahí no es lo
+mismo que hacerlo en spotify.com.
+
+Hoy ninguno de los dos tiene adaptador, así que no hay riesgo inmediato: están
+en "próximamente". Pero antes de escribir ese adaptador hay que decidir si de
+verdad son orquestables o si caen en el bucket de Apple.
+
+### Mecanismo de los 8 servicios sin decidir
+
+Ver arriba. Cada uno necesita una respuesta: ¿pausa, cancelar y recontratar, o
+no soportado?
 
 ---
 
@@ -45,3 +66,8 @@ v2. Revisar antes de exponer el piloto a internet.
 486 líneas, con el flujo de Reap y las 3 suscripciones físicas. Se fue sola a la
 paleta nueva al regenerar la escala violet, pero su contenido es de v1. Decidir
 en qué fase se reemplaza por el dashboard de v2.
+
+### El seed reescribe el catálogo en cada arranque
+`seed()` corre un UPSERT en cada apertura de la base. Es lo correcto mientras el
+catálogo viva en código, pero si algún día se edita un servicio desde el admin,
+el siguiente arranque lo pisa. Decidir entonces quién manda.

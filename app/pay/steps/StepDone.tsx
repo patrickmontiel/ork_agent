@@ -6,11 +6,13 @@ import type { ServicioLigero } from "../types";
 export default function StepDone({
   servicio,
   dia,
+  siguiente,
 }: {
   servicio: ServicioLigero;
   dia: DayChoice;
+  siguiente: string;
 }) {
-  const esCerrado = servicio.rol === "cerrado";
+  const necesitaMandato = siguiente === "mandato";
 
   return (
     <div className="py-6">
@@ -29,20 +31,31 @@ export default function StepDone({
         <span className="font-semibold text-violet-300">{dayLabel(dia.day)}</span>.
       </p>
 
-      {esCerrado && (
-        <div className="mt-6 rounded-card border border-[color:var(--line)] p-4">
-          <p className="eyebrow">Lo que sigue</p>
-          <p className="dim mt-2 text-[13px] leading-relaxed">
-            Para mover la fecha de {servicio.nombre}, Ork necesita tu permiso por
-            escrito y te va a mostrar antes, en números, qué cambia y cuánto
-            cuesta. Te escribimos cuando esté listo.
-          </p>
-        </div>
+      {necesitaMandato ? (
+        <>
+          <div className="mt-6 rounded-card border border-[color:var(--line)] p-4">
+            <p className="eyebrow">Falta un paso</p>
+            <p className="dim mt-2 text-[13px] leading-relaxed">
+              Para mover la fecha de {servicio.nombre}, Ork tiene que cancelar y
+              volver a contratar en tu nombre. Eso necesita tu permiso por
+              escrito, y lo puedes revocar cuando quieras.
+            </p>
+          </div>
+          <a
+            href={`/mandate/${servicio.id}?next=${encodeURIComponent("/cuenta/mandatos")}`}
+            className="btn-primary mt-5 w-full"
+          >
+            Leer y dar permiso
+          </a>
+          <a href="/" className="btn-ghost mt-2 w-full">
+            Después
+          </a>
+        </>
+      ) : (
+        <a href="/" className="btn-ghost mt-6 w-full">
+          Ver mis suscripciones
+        </a>
       )}
-
-      <a href="/" className="btn-ghost mt-6 w-full">
-        Ver mis suscripciones
-      </a>
     </div>
   );
 }

@@ -3,14 +3,15 @@
 // convierten en los repositorios.
 
 export type ServiceRole = "puente" | "cerrado" | "no_editable";
-export type Mechanism = "cancel_resubscribe" | "pause" | "api";
+export type Orchestrable = "cancel_resubscribe" | "pause" | "api" | "not_supported";
 export type SupportStatus = "soportado" | "por_verificar" | "no_soportado";
 
 export interface ServiceRow {
   id: string;
   name: string;
   role: ServiceRole;
-  mechanism: Mechanism | null;
+  orchestrable: Orchestrable | null;
+  pilot_adapter: number;
   blocked_reason: string | null;
   support_status: SupportStatus;
   emoji: string | null;
@@ -47,8 +48,11 @@ export interface PublicPriceRow {
   service_id: string;
   plan: string;
   country: string;
-  amount: number;
+  amount: number | null;
   currency: string;
+  is_promo: number;
+  needs_verification: number;
+  note: string | null;
   checked_at: string;
   source: string | null;
 }
@@ -75,6 +79,9 @@ export interface PilotSwitchRow {
 }
 
 /** Servicio con los booleanos ya resueltos, listo para la UI. */
-export interface Service extends Omit<ServiceRow, "created_at"> {
+export interface Service extends Omit<ServiceRow, "created_at" | "pilot_adapter"> {
+  /** Ork puede mover la fecha de este servicio. */
   editable: boolean;
+  /** Hay adaptador real en el piloto. Si no, se muestra como "próximamente". */
+  hasPilotAdapter: boolean;
 }

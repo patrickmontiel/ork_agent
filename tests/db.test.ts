@@ -19,7 +19,7 @@ function fresh(): Database.Database {
 function seedUserAndService(db: Database.Database) {
   db.prepare("INSERT INTO users (id, email, created_at) VALUES ('u1', 'a@b.mx', '2026-10-15T00:00:00Z')").run();
   db.prepare(
-    "INSERT INTO services (id, name, role, mechanism, support_status, created_at) VALUES ('spotify','Spotify','cerrado','cancel_resubscribe','soportado','2026-10-15T00:00:00Z')",
+    "INSERT INTO services (id, name, role, orchestrable, support_status, created_at) VALUES ('spotify','Spotify','cerrado','cancel_resubscribe','soportado','2026-10-15T00:00:00Z')",
   ).run();
 }
 

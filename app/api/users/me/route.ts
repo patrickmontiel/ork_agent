@@ -3,7 +3,7 @@ import { currentUser } from "@/lib/auth/session";
 import { paydays } from "@/lib/db/repo/users";
 import { listCards } from "@/lib/db/repo/cards";
 import { listUserServices } from "@/lib/db/repo/user-services";
-import { listClosed, listBridge, listBlocked } from "@/lib/db/repo/services";
+import { listPilot, listComingSoon, listUndecided, listBridge, listBlocked } from "@/lib/db/repo/services";
 
 export const dynamic = "force-dynamic";
 
@@ -51,17 +51,20 @@ export async function GET() {
 }
 
 function catalogo() {
-  const map = (s: ReturnType<typeof listClosed>[number]) => ({
+  const map = (s: ReturnType<typeof listPilot>[number]) => ({
     id: s.id,
     nombre: s.name,
     emoji: s.emoji,
     rol: s.role,
-    mecanismo: s.mechanism,
+    mecanismo: s.orchestrable,
+    tieneAdaptador: s.hasPilotAdapter,
     motivoBloqueo: s.blocked_reason,
   });
   return {
     // Protagonistas: Ork los mueve cancelando y recontratando, con mandato.
-    cerrados: listClosed().map(map),
+    cerrados: listPilot().map(map),
+    proximamente: listComingSoon().map(map),
+    sinMecanismo: listUndecided().map(map),
     // Puente: el comercio tiene API. Ork no cancela nada, no hace falta mandato.
     puente: listBridge().map(map),
     // No editables: se muestran con su motivo, nunca se prometen.

@@ -37,6 +37,29 @@ export default function StepService({
         onPick={onPick}
       />
 
+      {/* Mecanismo definido pero sin adaptador escrito. Se listan para que la
+          persona sepa que vienen, y NO se pueden elegir: prometer una fecha
+          que no podemos mover es peor que no listarlos. */}
+      {catalogo.proximamente.length > 0 && (
+        <section className="mt-7">
+          <h2 className="eyebrow">Próximamente</h2>
+          <p className="dim mt-1 text-[12px] leading-relaxed">
+            Ya sabemos cómo moverlos. Todavía no están listos.
+          </p>
+          <ul className="mt-2.5 flex flex-wrap gap-1.5">
+            {catalogo.proximamente.map((s) => (
+              <li
+                key={s.id}
+                className="rounded-pill border border-[color:var(--line)] px-3 py-1.5 text-[13px] text-[color:var(--text-dim)]"
+              >
+                <span aria-hidden>{s.emoji} </span>
+                {s.nombre}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {catalogo.puente.length > 0 && (
         <Grupo
           titulo="Comercios con Ork integrado"

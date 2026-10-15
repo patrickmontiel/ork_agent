@@ -36,6 +36,7 @@ export default function PayFlow({
   const [devUrl, setDevUrl] = useState<string | null>(null);
   const [servicio, setServicio] = useState<ServicioLigero | null>(null);
   const [dia, setDia] = useState<DayChoice | null>(null);
+  const [siguiente, setSiguiente] = useState<string>("listo");
 
   const indice = ORDEN.indexOf(paso === "revisa_correo" ? "correo" : paso);
   const total = ORDEN.length - 1; // "listo" no cuenta como paso
@@ -94,12 +95,15 @@ export default function PayFlow({
           plan={plan}
           tarjeta={user?.tarjetas.find((t) => t.isDefault) ?? user?.tarjetas[0] ?? null}
           onBack={() => setPaso("dia")}
-          onDone={() => setPaso("listo")}
+          onDone={(s) => {
+            setSiguiente(s);
+            setPaso("listo");
+          }}
         />
       )}
 
       {paso === "listo" && servicio && dia && (
-        <StepDone servicio={servicio} dia={dia} />
+        <StepDone servicio={servicio} dia={dia} siguiente={siguiente} />
       )}
     </div>
   );
