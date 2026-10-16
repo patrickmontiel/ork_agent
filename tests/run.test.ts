@@ -102,7 +102,10 @@ test("falla_recontrato: reintenta RETRY_MAX veces antes de rendirse", async () =
 test("falla_recontrato: entrega instrucciones manuales concretas", async () => {
   const { result } = await correr("falla_recontrato");
   assert.ok(result.manualSteps && result.manualSteps.length > 0);
-  assert.match(result.manualSteps.join(" "), /2026-11-16/, "dice la fecha exacta");
+  // La fecha va en español, no en ISO: esto se lee cuando la persona acaba de
+  // quedarse sin servicio, y "2026-11-16" ahí es hacerle leer una base de datos.
+  assert.match(result.manualSteps.join(" "), /16 de noviembre/, "dice la fecha exacta, legible");
+  assert.doesNotMatch(result.manualSteps.join(" "), /\d{4}-\d{2}-\d{2}/, "sin fechas ISO");
   assert.match(result.userMessage, /avisamos al equipo/);
 });
 

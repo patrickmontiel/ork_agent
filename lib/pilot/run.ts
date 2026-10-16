@@ -204,10 +204,28 @@ function manualStepsFor(adapter: ClosedServiceAdapter, onDate: string): string[]
   }
   return [
     `Entra a tu cuenta de ${nombre}.`,
-    `Vuelve a contratar tu plan el ${onDate}.`,
+    `Vuelve a contratar tu plan el ${fechaLegible(onDate)}.`,
     "Ese día queda como tu nueva fecha de cobro.",
     "Si te cobran antes o un monto distinto, escríbenos y lo resolvemos.",
   ];
+}
+
+/**
+ * Fecha en español, no ISO.
+ *
+ * Esto se lee en el peor momento —la persona acaba de quedarse sin servicio—,
+ * y "2026-11-16" ahí es hacerle leer una base de datos.
+ */
+function fechaLegible(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("es-MX", {
+      day: "numeric",
+      month: "long",
+      timeZone: "America/Mexico_City",
+    }).format(new Date(`${iso}T12:00:00-06:00`));
+  } catch {
+    return iso;
+  }
 }
 
 function capitalize(s: string): string {
