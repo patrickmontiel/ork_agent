@@ -303,3 +303,35 @@ test("una firma vieja se rechaza (replay fuera de tolerancia)", () => {
   const hace2h = Math.floor(Date.now() / 1000) - 7200;
   assert.throws(() => verificar(EVENTO, firmar(EVENTO, SECRET, hace2h)), /timestamp|tolerance/i);
 });
+
+// ─── Un cobro pagado deja UN evento, no dos ─────────────────────────────────
+//
+// Salió del pago real de prueba: markPaid() ya emitía fee.charged y la
+// reconciliación emitía otro, así que un solo cobro dejaba dos eventos. El
+// cobro nunca se duplicó, pero cualquier conteo sobre eventos habría mentido.
+
+test("marcar pagado dos veces no reemite el evento", () => {
+  const db = dbConCobro();
+  insertarFee(db, "c1", "o1");
+
+  // Primer markPaid: cambia el estado.
+  const r1 = db
+    .prepare(
+      "UPDATE charges SET status='pagado', paid_at='t' WHERE id='c1' AND status <> 'pagado'",
+    )
+    .run();
+  assert.equal(r1.changes, 1, "el primero sí marca");
+
+  // Segundo: no cambia nada, así que tampoco hay evento que emitir.
+  const r2 = db
+    .prepare(
+      "UPDATE charges SET status='pagado', paid_at='t2' WHERE id='c1' AND status <> 'pagado'",
+    )
+    .run();
+  assert.equal(r2.changes, 0, "el segundo no toca nada");
+
+  // Y la hora de pago original no se pisa.
+  const c = db.prepare("SELECT paid_at FROM charges WHERE id='c1'").get() as { paid_at: string };
+  assert.equal(c.paid_at, "t");
+  db.close();
+});

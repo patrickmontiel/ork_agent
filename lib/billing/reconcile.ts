@@ -46,15 +46,9 @@ export async function reconcileUserCharges(user: UserRow): Promise<ReconcileResu
           typeof session.payment_intent === "string"
             ? session.payment_intent
             : session.payment_intent?.id;
-        if (markPaid(c.id, pi)) {
-          out.pagados++;
-          track({
-            type: "fee.charged",
-            userId: user.id,
-            orchestrationId: c.orchestration_id ?? undefined,
-            payload: { via: "reconciliacion", chargeId: c.id },
-          });
-        }
+        // El evento lo emite markPaid, con via="reconciliacion". Emitir otro
+        // aquí dejaba DOS fee.charged para un solo cobro.
+        if (markPaid(c.id, pi, "reconciliacion")) out.pagados++;
       } else if (session.status === "expired") {
         markFailed(c.id, "sesión de pago expirada");
         out.fallidos++;

@@ -98,8 +98,20 @@ export function attachSession(chargeId: string, sessionId: string): void {
     .run(sessionId, chargeId);
 }
 
-/** Marca pagado. Idempotente: si ya estaba pagado, no hace nada ni reemite evento. */
-export function markPaid(chargeId: string, paymentIntent?: string): boolean {
+/**
+ * Marca pagado. Idempotente: si ya estaba pagado, no hace nada ni reemite evento.
+ *
+ * `via` dice QUIÉN confirmó el pago: el webhook de Stripe o la reconciliación.
+ * No es decoración — si los pagos empiezan a confirmarse todos por
+ * reconciliación, es que los webhooks no están llegando, y eso solo se ve si
+ * queda registrado aquí. Va en este evento y no en otro aparte, porque dos
+ * eventos para un mismo cobro inflarían cualquier conteo.
+ */
+export function markPaid(
+  chargeId: string,
+  paymentIntent?: string,
+  via: "webhook" | "reconciliacion" = "webhook",
+): boolean {
   const res = db()
     .prepare(
       `UPDATE charges SET status = 'pagado', paid_at = ?, stripe_payment_intent = COALESCE(?, stripe_payment_intent)
@@ -113,7 +125,7 @@ export function markPaid(chargeId: string, paymentIntent?: string): boolean {
       type: "fee.charged",
       userId: c?.user_id,
       orchestrationId: c?.orchestration_id ?? undefined,
-      payload: { kind: c?.kind, amount: c?.amount, currency: c?.currency },
+      payload: { kind: c?.kind, amount: c?.amount, currency: c?.currency, via },
     });
   }
   return res.changes > 0;
