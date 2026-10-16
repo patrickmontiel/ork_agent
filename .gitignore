@@ -36,8 +36,10 @@ yarn-error.log*
 next-env.d.ts
 
 # secrets
+# Cualquier .env, incluidos respaldos tipo .env.bak-123: un respaldo con
+# llaves reales es igual de peligroso que el original.
 .env
-.env*.local
+.env*
 data/state.json
 dev-server.log
 
