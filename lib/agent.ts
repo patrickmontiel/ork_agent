@@ -4,7 +4,7 @@
 import "server-only";
 import { DateProposal, applyProposal, bestDayAfterPayday, isSafeDay, proposeDateChange, rescueForward } from "./orchestrator";
 import { findSub, llmProvider, log, state } from "./store";
-import { startBillingCycle } from "./billing";
+import { startBillingCycle } from "./rails/reap-rail";
 
 type Json = Record<string, any>;
 
@@ -228,7 +228,8 @@ async function runRules(text: string): Promise<string> {
     if (!/rescat/.test(t)) await runTool("simulate_failed_payment", { sub_id: id });
     const sub = s.subs.find((x) => x.id === id)!;
     if (sub.merchantType !== "corte_duro") return `El pago de ${sub.name.toLowerCase()} falló. Esta tienda cobra los días que ya usaste, así que no puedo moverlo sin costo.`;
-    const day = bestDayAfterPayday(s.paydays);
+    // La quincena que viene, contada desde hoy — no la primera del mes.
+    const day = bestDayAfterPayday(s.paydays, Number(s.today.slice(8, 10)));
     const r = await runTool("rescue_forward", { sub_id: id, target_day: day });
     if (r.error) return r.error;
     const c = await runTool("run_billing_cycle", { sub_id: id, reason: `Reintento tras rescate: nueva fecha ${r.newDate}, ${r.blockedDays} días condonados.` });

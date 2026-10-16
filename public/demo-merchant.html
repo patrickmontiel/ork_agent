@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sokolatería — Checkout de prueba</title>
+<!--
+  Checkout falso de un comercio, para ver el botón de Ork embebido.
+  A propósito NO usa la paleta de Ork: así se comprueba que el Shadow DOM
+  aísla los estilos y que el botón se ve igual dentro de cualquier sitio.
+  Abre: http://localhost:3001/demo-merchant.html
+-->
+<style>
+  body{margin:0;background:#faf7f2;color:#2b2118;font-family:Georgia,'Times New Roman',serif;padding:48px 20px}
+  .wrap{max-width:420px;margin:0 auto;background:#fff;border:1px solid #e4dbcd;border-radius:6px;padding:32px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:#8a7a66;font-size:14px;margin:0 0 28px}
+  .line{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0e9dd;font-size:15px}
+  .line:last-of-type{border-bottom:0;font-weight:700}
+  .pay{margin-top:26px;display:flex;flex-direction:column;gap:10px}
+  .alt{all:unset;box-sizing:border-box;display:block;width:100%;min-height:44px;padding:12px 18px;
+       border:1px solid #d6c9b4;border-radius:6px;text-align:center;cursor:pointer;font-size:15px}
+  .or{text-align:center;color:#a2937e;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+  .note{margin-top:22px;color:#8a7a66;font-size:12px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Caja mensual de cacao</h1>
+    <p class="sub">Sokolatería · suscripción mensual</p>
+
+    <div class="line"><span>Caja mensual</span><span>$399.00</span></div>
+    <div class="line"><span>Envío</span><span>Incluido</span></div>
+    <div class="line"><span>Total hoy</span><span>$399.00 MXN</span></div>
+
+    <div class="pay">
+      <button class="alt">Pagar con tarjeta</button>
+      <p class="or">o</p>
+
+      <!-- Esto es todo lo que el comercio pega: -->
+      <div data-ork data-merchant="sokolateria" data-plan="mensual"></div>
+    </div>
+
+    <p class="note">
+      Checkout de prueba. El botón morado viene de <code>/ork.js</code> y vive
+      en un Shadow DOM: no hereda estos estilos serif ni los modifica.
+    </p>
+  </div>
+
+  <script src="/ork.js" async></script>
+</body>
+</html>

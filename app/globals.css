@@ -2,40 +2,176 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ───────────────────────────────────────────────────────────────────────────
+   Ork — sistema de identidad v1.0
+   Dark-first a propósito: la marca vive sobre navy casi negro. No hay tema
+   claro; es una decisión, no un olvido. Por eso body pinta su fondo explícito.
+   ─────────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --ink: #07060d;
-  --surface: #110e1d;
-  --line: rgba(196, 181, 253, 0.12);
-  --violet: #8b5cf6;
-  --violet-soft: #c4b5fd;
+  /* Paleta — espejo de tailwind.config.ts */
+  --primary: #6c2eff;
+  --primary-hover: #7d45ff;
+  --primary-press: #5a1fe0;
+  --violet: #a959ff;
+  --navy: #0b0d17;
+  --slate: #1c1f2a;
+  --mist: #f2f4f7;
+
+  /* Derivados */
+  --text: #f2f4f7;
+  --text-dim: #9aa1b4;
+  --text-faint: #6b7385;
+  --line: rgba(169, 89, 255, 0.14);
+  --line-strong: rgba(169, 89, 255, 0.28);
+
+  /* Semánticos */
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --danger: #f87171;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--ink);
-  color: #ece9f6;
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background: var(--navy);
+  color: var(--text);
+  font-family: var(--font-body), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-.panel { @apply rounded-2xl border bg-[var(--surface)]; border-color: var(--line); }
-.btn { @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07060d] disabled:cursor-not-allowed disabled:opacity-40; }
-.btn-primary { @apply btn bg-violet-500 text-white hover:bg-violet-400; }
-.btn-ghost { @apply btn border border-violet-200/15 text-violet-50 hover:bg-violet-300/10; }
-.btn-danger { @apply btn border border-rose-300/30 text-rose-200 hover:bg-rose-400/10; }
-.btn-ok { @apply btn bg-emerald-400 text-emerald-950 hover:bg-emerald-300; }
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
 
-/* Momento único: el indicador "con Ork" cae a su nuevo valor */
+/* Foco visible en todo lo enfocable. Contraste AA sobre navy. */
+:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Superficies ─────────────────────────────────────────────────────────── */
+
+.panel {
+  @apply rounded-card border bg-slate shadow-card;
+  border-color: var(--line);
+}
+
+.panel-flat {
+  @apply rounded-card border;
+  border-color: var(--line);
+  background: transparent;
+}
+
+/* ─── Controles ───────────────────────────────────────────────────────────── */
+/* Todos cumplen el mínimo táctil de 44 px vía min-h-touch. */
+
+.btn {
+  @apply inline-flex min-h-touch items-center justify-center gap-2 rounded-control px-4 py-2.5 text-sm font-medium transition-colors;
+  @apply disabled:cursor-not-allowed disabled:opacity-40;
+}
+
+.btn-primary {
+  @apply btn text-white;
+  background: var(--primary);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+.btn-primary:active:not(:disabled) {
+  background: var(--primary-press);
+}
+
+.btn-ghost {
+  @apply btn border;
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(169, 89, 255, 0.1);
+}
+
+.btn-danger {
+  @apply btn border;
+  border-color: rgba(248, 113, 113, 0.35);
+  color: var(--danger);
+}
+.btn-danger:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.btn-ok {
+  @apply btn text-navy;
+  background: var(--ok);
+}
+.btn-ok:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* ─── Tipografía utilitaria ───────────────────────────────────────────────── */
+
+.eyebrow {
+  @apply text-[11px] font-medium uppercase tracking-[0.14em];
+  color: var(--text-faint);
+}
+
+.dim {
+  color: var(--text-dim);
+}
+
+/* Números que se comparan en columna: montos, días, fechas. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Movimiento ──────────────────────────────────────────────────────────── */
+/* Momento único: el indicador "con Ork" cae a su nuevo valor. */
+
 @keyframes settle {
-  from { transform: translateY(-0.35em) scale(1.12); filter: blur(6px); opacity: 0.2; }
-  to { transform: none; filter: none; opacity: 1; }
+  from {
+    transform: translateY(-0.35em) scale(1.12);
+    filter: blur(6px);
+    opacity: 0.2;
+  }
+  to {
+    transform: none;
+    filter: none;
+    opacity: 1;
+  }
 }
-.settle { animation: settle 700ms cubic-bezier(0.16, 1, 0.3, 1); }
+.settle {
+  animation: settle 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 @keyframes glowfade {
-  from { box-shadow: 0 12px 48px -8px rgba(139, 92, 246, 0.55); }
-  to { box-shadow: 0 12px 48px -8px rgba(139, 92, 246, 0); }
+  from {
+    box-shadow: 0 12px 48px -8px rgba(108, 46, 255, 0.55);
+  }
+  to {
+    box-shadow: 0 12px 48px -8px rgba(108, 46, 255, 0);
+  }
 }
-.glowfade { animation: glowfade 1600ms ease-out; }
+.glowfade {
+  animation: glowfade 1600ms ease-out;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .settle, .glowfade { animation: none; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

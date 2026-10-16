@@ -40,3 +40,10 @@ next-env.d.ts
 .env*.local
 data/state.json
 dev-server.log
+
+# Ork v2
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.playwright/
