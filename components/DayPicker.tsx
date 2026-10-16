@@ -44,10 +44,17 @@ export default function DayPicker({
   value,
   onChange,
   disabled = false,
+  legendHidden = false,
 }: {
   value: DayChoice | null;
   onChange: (c: DayChoice) => void;
   disabled?: boolean;
+  /**
+   * Oculta la pregunta A LA VISTA cuando la pantalla ya la hizo como título,
+   * para no leerla dos veces. La leyenda sigue en el DOM: el fieldset la
+   * necesita para que un lector de pantalla sepa de qué va el grupo.
+   */
+  legendHidden?: boolean;
 }) {
   const [gridOpen, setGridOpen] = useState(value?.kind === "otra");
   const groupId = useId();
@@ -58,10 +65,14 @@ export default function DayPicker({
   return (
     <div>
       <fieldset disabled={disabled} className="border-0 p-0">
-        <legend className="font-display text-xl font-bold text-mist">
+        <legend
+          className={
+            legendHidden ? "sr-only" : "font-display text-xl font-bold text-mist"
+          }
+        >
           ¿Cuándo te cae tu dinero?
         </legend>
-        <p className="dim mt-1.5 text-sm">
+        <p className={legendHidden ? "sr-only" : "dim mt-1.5 text-sm"}>
           Ork va a cobrar justo después, cuando sí tengas saldo.
         </p>
 

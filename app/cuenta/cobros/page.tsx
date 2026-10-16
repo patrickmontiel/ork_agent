@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth/session";
 import { listCharges } from "@/lib/db/repo/charges";
+import { reconcileUserCharges } from "@/lib/billing/reconcile";
 import Logo from "@/components/brand/Logo";
 import PagarPendiente from "./PagarPendiente";
 
@@ -21,6 +22,11 @@ export default async function CobrosPage({
   const sp = await searchParams;
   const user = await currentUser();
   if (!user) redirect("/pay?next=%2Fcuenta%2Fcobros");
+
+  // Antes de mostrar nada, se le pregunta a Stripe por los cobros pendientes.
+  // Sin esto, un webhook perdido —o un localhost al que Stripe no puede
+  // llegar— dejaría un cobro pagado marcado como pendiente para siempre.
+  await reconcileUserCharges(user);
 
   const cobros = listCharges(user.id);
   const aviso =

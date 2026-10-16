@@ -29,6 +29,9 @@ export function tokenIsValid(candidate: string | undefined): boolean {
   return timingSafeEqual(hash(candidate), hash(real));
 }
 
-export function isAdmin(): boolean {
-  return tokenIsValid(cookies().get(ADMIN_COOKIE)?.value);
+// Desde Next 15, cookies() es asíncrona. No es un detalle de tipos: leer la
+// cookie sin await devolvía una promesa, y tokenIsValid() la habría rechazado
+// en silencio dejando el admin inaccesible en vez de roto a la vista.
+export async function isAdmin(): Promise<boolean> {
+  return tokenIsValid((await cookies()).get(ADMIN_COOKIE)?.value);
 }

@@ -23,25 +23,23 @@ interface Calculo {
 // de 15 minutos corre desde ese momento. Calcularlo en el servidor al renderizar
 // haría que el reloj empezara antes de que la persona viera nada.
 
-// En Next 14 los params de un componente de CLIENTE llegan como objetos planos,
-// no como promesas — use() sobre un objeto plano lanza. En Next 15 sí son
-// promesas. Se acepta cualquiera de las dos formas para que un upgrade no
-// rompa esta pantalla en silencio.
-function unwrap<T>(v: T | Promise<T>): T {
-  return v instanceof Promise ? use(v) : v;
-}
+// Desde Next 15, params y searchParams SON promesas, también en componentes de
+// cliente. En Next 14 llegaban como objetos planos y use() sobre un objeto
+// plano lanzaba; por eso aquí había un envoltorio que aceptaba las dos formas.
+//
+// Ese envoltorio se fue: llamaba a use() desde una función que no es un hook,
+// y encima condicionalmente, que es justo lo que las reglas de hooks prohíben.
+// Con Next 15 la ambigüedad ya no existe, así que use() va directo.
 
 export default function OrquestarPage({
   params,
   searchParams,
 }: {
-  params: { service: string } | Promise<{ service: string }>;
-  searchParams:
-    | Record<string, string | string[] | undefined>
-    | Promise<Record<string, string | string[] | undefined>>;
+  params: Promise<{ service: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { service } = unwrap(params);
-  const sp = unwrap(searchParams);
+  const { service } = use(params);
+  const sp = use(searchParams);
   const one = (k: string) => (Array.isArray(sp[k]) ? sp[k]?.[0] : sp[k]) as string | undefined;
   const targetDay = Number(one("dia") ?? 16);
   const scenario = one("escenario");

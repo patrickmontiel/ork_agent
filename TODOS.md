@@ -93,15 +93,30 @@ Es una de las métricas de la Fase 5.
 `.eslintrc.json`; en el resto del código la regla es error. Al tiparlos, borrar
 ese bloque de overrides.
 
-### Vulnerabilidades de dependencias
-12 reportadas por `npm audit` (1 crítica), todas preexistentes y todas en la
-cadena de Next 14.2.35 / tailwind / eslint. Ninguna viene de lo que se agregó en
-v2. Revisar antes de exponer el piloto a internet.
+### Vulnerabilidades de dependencias — de 12 a 7, sin críticas (16-oct-2026)
 
-### `app/page.tsx` sigue siendo la pantalla del buildathon
-486 líneas, con el flujo de Reap y las 3 suscripciones físicas. Se fue sola a la
-paleta nueva al regenerar la escala violet, pero su contenido es de v1. Decidir
-en qué fase se reemplaza por el dashboard de v2.
+Next 14 **no tenía versión parcheada**: toda la línea 14.x era vulnerable,
+incluidas dos RCE críticas. Se subió a **Next 15.5.28** (React 18 sigue siendo
+peer válido, así que no hubo que saltar a React 19) y se agregaron `overrides`
+para `postcss` (next fija 8.4.31) y `postcss-selector-parser`.
+
+Quedan 7, todas `high` y **todas del mismo origen**: `braces`, con un DoS por
+agotamiento de pila. No tiene versión parcheada publicada — la última, 3.0.3,
+sigue en el rango vulnerable. Llega por `micromatch → fast-glob → chokidar`,
+que usan el watcher de Tailwind 3 y el escáner de archivos del plugin de ESLint
+de Next. Las dos son herramientas de build: el patrón de glob lo pone nuestro
+propio repo, no un atacante, así que no es superficie de ataque en runtime.
+
+Para llegar a cero hace falta **Tailwind 4** (cambia a oxide y deja de usar
+chokidar/micromatch) y el plugin de ESLint de **Next 16**. Tailwind 4 reescribe
+la configuración a CSS-first, o sea tocar `tailwind.config.ts` y `globals.css`
+enteros. No se hizo aquí porque era cambiar el sistema de diseño en el mismo
+movimiento que el parche de seguridad.
+
+### `app/page.tsx` del buildathon: movido, no borrado (16-oct-2026)
+Vive en `/legacy/reap`. Sigue siendo la demo del rail agéntico de Reap y del
+rol "puente" con las 3 suscripciones físicas. Borrarlo cuando el rail de Reap
+deje de ofrecerse; no evolucionarlo en paralelo a v2.
 
 ### El seed reescribe el catálogo en cada arranque
 `seed()` corre un UPSERT en cada apertura de la base. Es lo correcto mientras el

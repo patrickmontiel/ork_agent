@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { dayLabel, type DayChoice } from "@/components/DayPicker";
 import type { ServicioLigero } from "../types";
 
@@ -47,14 +48,14 @@ export default function StepDone({
           >
             Leer y dar permiso
           </a>
-          <a href="/" className="btn-ghost mt-2 w-full">
+          <Link href="/" className="btn-ghost mt-2 w-full">
             Después
-          </a>
+          </Link>
         </>
       ) : (
-        <a href="/" className="btn-ghost mt-6 w-full">
-          Ver mis suscripciones
-        </a>
+        <Link href="/cuenta/mandatos" className="btn-ghost mt-6 w-full">
+          Ver mis permisos
+        </Link>
       )}
     </div>
   );

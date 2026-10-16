@@ -30,8 +30,8 @@ const ETIQUETA: Record<Verdict, string> = {
   sin_datos: "sin datos",
 };
 
-export default function AdminPilotPage() {
-  if (!isAdmin()) {
+export default async function AdminPilotPage() {
+  if (!(await isAdmin())) {
     return (
       <main className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col px-5 py-8">
         <header className="mb-8">
