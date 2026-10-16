@@ -378,3 +378,20 @@ export function finishPhase2(
     )
     .run(state, retries, error, now(), orchestrationId);
 }
+
+/**
+ * Lo que la persona tiene a medias ahora mismo.
+ *
+ * Solo `esperando_recontrato` y sin abandonar: es el único estado en que hace
+ * falta que haga algo. Ordenado por urgencia —lo que vence antes, primero—
+ * porque la tarjeta muestra una a la vez en la portada.
+ */
+export function pendingForUser(userId: string): OrchestrationRow[] {
+  return db()
+    .prepare<[string], OrchestrationRow>(
+      `SELECT * FROM orchestrations
+        WHERE user_id = ? AND state = 'esperando_recontrato' AND abandoned_at IS NULL
+        ORDER BY to_date`,
+    )
+    .all(userId);
+}

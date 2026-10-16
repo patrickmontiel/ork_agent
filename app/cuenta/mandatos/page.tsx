@@ -6,12 +6,25 @@ import { textByVersion, fullText } from "@/lib/mandate/texts";
 import { sha256 } from "@/lib/db";
 import Logo from "@/components/brand/Logo";
 import MandateList, { type MandatoView } from "./MandateList";
+import PendienteCard from "@/components/Pendiente";
+import { pendingForUser } from "@/lib/db/repo/orchestrations";
+import { derivarPendiente } from "@/lib/pilot/pendiente";
+import { todayCDMX } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export default async function MandatosPage() {
   const user = await currentUser();
   if (!user) redirect("/pay?next=%2Fcuenta%2Fmandatos");
+
+  // Lo que está a medias va antes que los permisos: aquí la persona viene a
+  // resolver algo, no a leer textos legales.
+  const hoy = todayCDMX();
+  const pendientes = pendingForUser(user.id).flatMap((row) => {
+    const service = getService(row.service_id);
+    if (!service) return [];
+    return [{ row, service }];
+  });
 
   const mandatos: MandatoView[] = listMandates(user.id).map((m) => {
     const service = getService(m.service_id);
@@ -41,6 +54,29 @@ export default async function MandatosPage() {
       <header className="mb-8">
         <Logo variant="full" className="text-[26px]" />
       </header>
+
+      {pendientes.length > 0 && (
+        <div className="mb-9 flex flex-col gap-3">
+          {pendientes.map(({ row, service }) => (
+            <PendienteCard
+              key={row.id}
+              p={derivarPendiente({
+                serviceName: service.name,
+                resubDate: row.to_date,
+                undoDeadline: row.undo_deadline,
+                targetDay: row.to_day,
+                today: hoy,
+              })}
+              serviceId={service.id}
+              serviceName={service.name}
+              emoji={service.emoji ?? ""}
+              orchestrationId={row.id}
+              undoDeadline={row.undo_deadline}
+              resubDate={row.to_date}
+            />
+          ))}
+        </div>
+      )}
 
       <h1 className="font-display text-2xl font-bold text-mist">Tus permisos</h1>
       <p className="dim mt-2 text-sm leading-relaxed">

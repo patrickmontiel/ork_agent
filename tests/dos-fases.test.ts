@@ -229,3 +229,64 @@ test("el aviso de deshacer se calcula contra el día que recibe, no contra el re
   assert.equal(q("2026-11-12"), 0, "y después menos");
   db.close();
 });
+
+// ─── La tarjeta de "tienes algo esperando" ──────────────────────────────────
+//
+// Lo que se defiende no es el diseño: es que la urgencia sea la correcta.
+// Pedirle que actúe cuando no toca la entrena a ignorar la tarjeta; no avisarle
+// el día que sí, la deja sin servicio.
+
+import { derivarPendiente } from "../lib/pilot/pendiente.ts";
+
+const basePend = {
+  serviceName: "Spotify",
+  resubDate: "2026-11-16",
+  undoDeadline: "2026-11-10",
+  targetDay: 16,
+};
+
+test("faltando días: espera, y todavía puede deshacer", () => {
+  const p = derivarPendiente({ ...basePend, today: "2026-11-05" });
+  assert.equal(p.urgencia, "esperando");
+  assert.equal(p.diasParaRecontratar, 11);
+  assert.equal(p.puedeDeshacer, true);
+  assert.match(p.titulo, /se reactiva en 11 días/);
+});
+
+test("el día objetivo: urgencia 'hoy' y dice qué gana si actúa", () => {
+  const p = derivarPendiente({ ...basePend, today: "2026-11-16" });
+  assert.equal(p.urgencia, "hoy");
+  assert.equal(p.diasParaRecontratar, 0);
+  assert.match(p.titulo, /Hoy toca reactivar/);
+  assert.match(p.detalle, /día 16/);
+});
+
+test("pasado el día: vencido, y dice cuántos días lleva sin servicio", () => {
+  const p = derivarPendiente({ ...basePend, today: "2026-11-19" });
+  assert.equal(p.urgencia, "vencido");
+  assert.equal(p.diasParaRecontratar, -3);
+  assert.match(p.detalle, /hace 3 días/);
+  assert.match(p.detalle, /sigues sin servicio/);
+});
+
+test("la ventana de deshacer coincide EXACTAMENTE con la del API", () => {
+  // El API permite deshacer mientras hoy <= undo_deadline. Si la tarjeta usara
+  // otro corte, alguien vería un botón que falla al tocarlo.
+  assert.equal(derivarPendiente({ ...basePend, today: "2026-11-09" }).puedeDeshacer, true);
+  assert.equal(derivarPendiente({ ...basePend, today: "2026-11-10" }).puedeDeshacer, true, "el día límite todavía cuenta");
+  assert.equal(derivarPendiente({ ...basePend, today: "2026-11-11" }).puedeDeshacer, false);
+});
+
+test("sin poder deshacer, lo dice en vez de callárselo", () => {
+  const p = derivarPendiente({ ...basePend, today: "2026-11-12" });
+  assert.equal(p.puedeDeshacer, false);
+  assert.match(p.detalle, /ya no se puede deshacer/i);
+  assert.match(p.detalle, /se perdió/);
+});
+
+test("un día en singular no dice '1 días'", () => {
+  const p = derivarPendiente({ ...basePend, today: "2026-11-15" });
+  assert.match(p.titulo, /en 1 día\b/);
+  const v = derivarPendiente({ ...basePend, today: "2026-11-17" });
+  assert.match(v.detalle, /hace 1 día\b/);
+});
