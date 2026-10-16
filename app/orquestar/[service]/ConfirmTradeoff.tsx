@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Encuesta from "./Encuesta";
 import type { Tradeoff, TradeoffOption } from "@/lib/pilot/tradeoff";
 import type { PromoVerdict } from "@/lib/pilot/promo";
 
@@ -84,7 +85,27 @@ export default function ConfirmTradeoff({
     }
   }
 
-  if (resultado) return <ResultadoVista r={resultado} serviceName={serviceName} />;
+  // "No mover" no es irse de la pantalla: es un no explícito, y se registra.
+  // Si mucha gente llega hasta los números y dice que no, el problema es la
+  // oferta de Ork, no la gente — y eso solo se ve si queda escrito.
+  async function noMover() {
+    try {
+      await fetch("/api/orchestrate", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orchestrationId, opcion }),
+      });
+    } catch {
+      // Si no se pudo registrar, igual se la deja salir: nadie queda atrapado
+      // en una pantalla por culpa de una métrica.
+    }
+    window.location.href = "/cuenta/mandatos";
+  }
+
+  if (resultado)
+    return (
+      <ResultadoVista r={resultado} serviceName={serviceName} orchestrationId={orchestrationId} />
+    );
 
   if (tradeoff.alreadyOnTarget) {
     return (
@@ -224,9 +245,9 @@ export default function ConfirmTradeoff({
         {enviando ? "Moviendo…" : `Confirmar: ${elegida.kind === "esperar" ? "esperar" : "adelantar"}`}
       </button>
 
-      <a href="/cuenta/mandatos" className="btn-ghost mt-2 w-full">
+      <button type="button" onClick={noMover} disabled={enviando} className="btn-ghost mt-2 w-full">
         No mover
-      </a>
+      </button>
 
       <p className="dim mt-3 text-center text-[12px] leading-relaxed">
         Tienes 15 minutos para confirmar. Después hay que volver a calcular.
@@ -306,7 +327,15 @@ function Aviso({
   );
 }
 
-function ResultadoVista({ r, serviceName }: { r: Resultado; serviceName: string }) {
+function ResultadoVista({
+  r,
+  serviceName,
+  orchestrationId,
+}: {
+  r: Resultado;
+  serviceName: string;
+  orchestrationId: string;
+}) {
   const bien = r.ok;
   return (
     <div className="py-6">
@@ -348,6 +377,8 @@ function ResultadoVista({ r, serviceName }: { r: Resultado; serviceName: string 
           Tu {serviceName} quedó como estaba. No te cobramos nada.
         </p>
       )}
+
+      <Encuesta orchestrationId={orchestrationId} />
 
       <a href="/cuenta/mandatos" className="btn-ghost mt-7 w-full">
         Volver

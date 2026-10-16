@@ -127,6 +127,32 @@ async function handle(event: Stripe.Event): Promise<string> {
       return "cobro marcado fallido";
     }
 
+    case "invoice.payment_failed": {
+      // OJO: esto es el Premium de ORK, no el cobro de un comercio. El dinero
+      // de la suscripción del comercio nunca pasa por la cuenta de Stripe de
+      // Ork, así que este evento jamás puede hablar de Spotify ni de Netflix.
+      // El aviso de un cobro fallido del comercio entra por
+      // /api/merchant/payment-failed, que es el único que puede saberlo.
+      const inv = event.data.object as Stripe.Invoice;
+      const customerId = typeof inv.customer === "string" ? inv.customer : inv.customer?.id;
+      if (!customerId) return "factura sin cliente";
+      const user = db()
+        .prepare<[string], { id: string }>("SELECT id FROM users WHERE stripe_customer_id = ?")
+        .get(customerId);
+      if (!user) return "factura sin usuario";
+
+      // No se degrada aquí: Stripe reintenta durante días y la persona sigue
+      // siendo Premium mientras tanto. El downgrade llega con
+      // customer.subscription.deleted, cuando de verdad se acabó.
+      track({
+        type: "ork_premium.payment_failed",
+        userId: user.id,
+        severity: "warn",
+        payload: { intento: inv.attempt_count, monto: inv.amount_due },
+      });
+      return "pago de Premium fallido, registrado";
+    }
+
     case "customer.subscription.deleted": {
       // Se canceló Premium: vuelve a Free. No se le quita nada de lo ya hecho.
       const sub = event.data.object as Stripe.Subscription;

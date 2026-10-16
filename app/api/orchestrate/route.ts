@@ -256,3 +256,47 @@ export async function PUT(req: NextRequest) {
     cobro,
   });
 }
+
+/**
+ * DELETE /api/orchestrate — la persona ve los números y dice que no.
+ *
+ * Existe para que ese "no" se pueda distinguir de un link que se venció solo.
+ * Son cosas distintas: uno dice que el trade-off no compensa, el otro no dice
+ * nada. Si se mezclan, Ork nunca se entera de que su oferta no vale la pena.
+ */
+export async function DELETE(req: NextRequest) {
+  const user = await currentUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "Necesitas iniciar sesión." }, { status: 401 });
+  }
+
+  let body: { orchestrationId?: string; motivo?: string; opcion?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Cuerpo inválido." }, { status: 400 });
+  }
+
+  const row = body.orchestrationId ? orch.get(body.orchestrationId, user.id) : undefined;
+  if (!row) {
+    return NextResponse.json({ ok: false, error: "Esa operación no existe." }, { status: 404 });
+  }
+  if (row.state !== "registrado") {
+    return NextResponse.json(
+      { ok: false, error: "Esta operación ya no se puede cancelar." },
+      { status: 409 },
+    );
+  }
+
+  const tradeoff = row.tradeoff_json
+    ? (JSON.parse(row.tradeoff_json) as ReturnType<typeof computeTradeoff>)
+    : undefined;
+
+  orch.reject(row.id, body.motivo?.slice(0, 300) || "La persona decidió no mover la fecha.", {
+    porDesventaja: true,
+    tradeoff,
+    opcion: body.opcion,
+  });
+
+  return NextResponse.json({ ok: true });
+}

@@ -153,11 +153,32 @@ export function confirm(orchestrationId: string, chosen: TradeoffOption): boolea
   return res.changes > 0;
 }
 
-export function reject(orchestrationId: string, motivo: string): void {
+export function reject(
+  orchestrationId: string,
+  motivo: string,
+  ctx?: { porDesventaja?: boolean; tradeoff?: Tradeoff; opcion?: string },
+): void {
   db()
     .prepare("UPDATE orchestrations SET state = 'rechazado', error = ?, updated_at = ? WHERE id = ?")
     .run(motivo, now(), orchestrationId);
   track({ type: "orchestration.rejected", orchestrationId, payload: { motivo } });
+
+  // Que alguien vea los números y diga que no es una señal distinta de que el
+  // link se le haya vencido. Si pasa seguido, el trade-off no vale la pena y
+  // eso hay que saberlo, no esconderlo entre los expirados.
+  if (ctx?.porDesventaja) {
+    track({
+      type: "pilot.cancelled_for_disadvantage",
+      orchestrationId,
+      severity: "warn",
+      payload: {
+        motivo,
+        opcionVista: ctx.opcion,
+        diasSinServicio: ctx.tradeoff?.esperar.daysWithoutService,
+        costoDeMas: ctx.tradeoff?.adelantar?.extraCost,
+      },
+    });
+  }
 }
 
 export function expire(orchestrationId: string): void {
@@ -200,5 +221,16 @@ export function finish(
     });
   } else {
     track({ type: "orchestration.rolled_back", orchestrationId, payload: { estado: result.state } });
+  }
+
+  // El corte de servicio se cuenta aparte del incidente: no todo incidente
+  // deja a alguien sin Spotify, y la métrica que importa es justamente esa.
+  if (result.serviceGap) {
+    track({
+      type: "pilot.service_gap",
+      orchestrationId,
+      severity: "critical",
+      payload: { estado: result.state, retries: result.retries, mensaje: result.userMessage },
+    });
   }
 }

@@ -201,3 +201,46 @@ test("el estado previo se lee siempre, pase lo que pase", async () => {
     assert.equal(result.events[0].type, "estado_previo", `${s}: debe ser lo primero`);
   }
 });
+
+// ─── Corte de servicio: la métrica que puede hundir el piloto ───────────────
+//
+// serviceGap NO es "hubo un error". Es "la persona se quedó sin su servicio
+// porque Ork lo canceló y no supo devolvérselo". La diferencia importa: el
+// tablero del piloto mide esto, no los errores en general.
+
+test("falla_recontrato deja a la persona sin servicio → serviceGap", async () => {
+  const { result } = await correr("falla_recontrato");
+  assert.equal(result.state, "incidente");
+  assert.equal(result.serviceGap, true, "canceló y no pudo volver: es un corte");
+  assert.ok(result.manualSteps?.length, "y se le dan pasos para reactivarlo");
+});
+
+test("falla_cancelacion NO es corte: nada cambió", async () => {
+  const { result } = await correr("falla_cancelacion");
+  assert.equal(result.serviceGap, false, "si no llegó a cancelar, no hubo corte");
+});
+
+test("exito_silencioso en la cancelación NO es corte", async () => {
+  // El servicio dijo ok pero no cambió nada, así que la persona sigue con su
+  // servicio. Se detiene antes de recontratar sobre un estado falso.
+  const { result } = await correr("exito_silencioso");
+  assert.equal(result.serviceGap, false);
+});
+
+test("el camino feliz nunca reporta corte", async () => {
+  const { result } = await correr("feliz");
+  assert.equal(result.serviceGap, false);
+});
+
+test("una cuenta restringida desde el inicio no es corte provocado por Ork", async () => {
+  const { result } = await correr("cuenta_restringida");
+  assert.equal(result.accountRestricted, true);
+  assert.equal(result.serviceGap, false, "Ork no alcanzó a tocar nada");
+});
+
+test("si el recontrato se recupera en un reintento, no hubo corte final", async () => {
+  const { result } = await correr("feliz", { failResubscribeTimes: 2, retryMax: 3 });
+  assert.equal(result.state, "completado");
+  assert.ok(result.retries >= 1, "hubo reintentos");
+  assert.equal(result.serviceGap, false, "volvió a quedar activo: no se cuenta como corte");
+});

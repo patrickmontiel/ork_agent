@@ -17,10 +17,14 @@ Disney+ son promo de 6 meses y el precio base al que vuelven no está verificado
 Comparar contra ellos diría que todo el mundo tiene promo, que es lo mismo que
 no decir nada.
 
-**Falta decidir el mecanismo** — `orchestrable = NULL`: microsoft_365, canva,
-ps_plus, amazon_prime, xbox_game_pass, duolingo, rappi_pro, meli_plus. Aparecen
-en el catálogo pero no se listan como movibles. No se promete nada hasta
-decidirlo.
+**Falta decidir el mecanismo** — `orchestrable = NULL`: duolingo, rappi_pro y
+meli_plus. Aparecen en el catálogo pero no se listan como movibles. No se
+promete nada hasta decidirlo.
+
+Decididos el 16-oct-2026: canva y amazon_prime como `cancel_resubscribe`
+(amazon_prime solo en su plan mensual contratado directo, no el anual);
+microsoft_365, ps_plus y xbox_game_pass como `not_supported`, porque se cobran
+por tienda de apps o solo existen como plan largo.
 
 Revisar a los 90 días: `stalePrices()` avisa y `/api/health` lo reporta en
 `precios.rancios`, `precios.sin_verificar` y `precios.son_promo`.
@@ -43,14 +47,26 @@ Hoy ninguno de los dos tiene adaptador, así que no hay riesgo inmediato: están
 en "próximamente". Pero antes de escribir ese adaptador hay que decidir si de
 verdad son orquestables o si caen en el bucket de Apple.
 
-### Mecanismo de los 8 servicios sin decidir
+### Mecanismo de los 3 servicios que siguen sin decidir
 
-Ver arriba. Cada uno necesita una respuesta: ¿pausa, cancelar y recontratar, o
-no soportado?
+duolingo, rappi_pro y meli_plus. Cada uno necesita una respuesta: ¿pausa,
+cancelar y recontratar, o no soportado? Los tres tienen además el precio sin
+verificar, así que decidir el mecanismo sin verificar el precio no alcanza.
 
 ---
 
 ## Abierto de la Fase 4 (cobros)
+
+### El rescate solo puede entrar por el comercio, no por Stripe
+
+`invoice.payment_failed` en la cuenta de Stripe de Ork habla del Premium de
+Ork, nunca del cobro de Spotify: el dinero de la suscripción no pasa por aquí,
+que es la premisa del producto. Por eso el aviso de un cobro fallido del
+comercio entra firmado por `POST /api/merchant/payment-failed`.
+
+Lo que falta: ningún comercio lo está llamando todavía. Hasta que uno lo haga,
+el mensaje de rescate existe y está probado, pero no se dispara solo en
+producción. Es trabajo de integración, no de código.
 
 ### Un fee que queda en `fallido` no se reintenta
 

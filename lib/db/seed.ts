@@ -51,11 +51,11 @@ export const SERVICES: SeedService[] = [
   { id: "uber_one", name: "Uber One", role: "cerrado", orchestrable: "pause", pilot_adapter: 0, blocked_reason: null, support_status: "por_verificar", emoji: "🛵", sort_order: 32 },
 
   // ── Mecanismo SIN determinar. No se promete nada hasta decidirlo. ──
-  { id: "microsoft_365", name: "Microsoft 365", role: "cerrado", orchestrable: null, pilot_adapter: 0, blocked_reason: null, support_status: "por_verificar", emoji: "🪟", sort_order: 40 },
-  { id: "canva", name: "Canva", role: "cerrado", orchestrable: null, pilot_adapter: 0, blocked_reason: null, support_status: "por_verificar", emoji: "🎨", sort_order: 41 },
-  { id: "ps_plus", name: "PlayStation Plus", role: "cerrado", orchestrable: null, pilot_adapter: 0, blocked_reason: null, support_status: "por_verificar", emoji: "🎮", sort_order: 42 },
-  { id: "amazon_prime", name: "Amazon Prime", role: "cerrado", orchestrable: null, pilot_adapter: 0, blocked_reason: null, support_status: "por_verificar", emoji: "📦", sort_order: 43 },
-  { id: "xbox_game_pass", name: "Xbox Game Pass", role: "cerrado", orchestrable: null, pilot_adapter: 0, blocked_reason: null, support_status: "por_verificar", emoji: "🕹️", sort_order: 44 },
+  { id: "microsoft_365", name: "Microsoft 365", role: "no_editable", orchestrable: "not_supported", pilot_adapter: 0, blocked_reason: "Se cobra por tienda de apps o solo existe como plan largo; la fecha no se cambia desde fuera.", support_status: "no_soportado", emoji: "🪟", sort_order: 40 },
+  { id: "canva", name: "Canva", role: "cerrado", orchestrable: "cancel_resubscribe", pilot_adapter: 0, blocked_reason: null, support_status: "por_verificar", emoji: "🎨", sort_order: 41 },
+  { id: "ps_plus", name: "PlayStation Plus", role: "no_editable", orchestrable: "not_supported", pilot_adapter: 0, blocked_reason: "Se cobra por tienda de apps o solo existe como plan largo; la fecha no se cambia desde fuera.", support_status: "no_soportado", emoji: "🎮", sort_order: 42 },
+  { id: "amazon_prime", name: "Amazon Prime", role: "cerrado", orchestrable: "cancel_resubscribe", pilot_adapter: 0, blocked_reason: null, support_status: "por_verificar", emoji: "📦", sort_order: 43 },
+  { id: "xbox_game_pass", name: "Xbox Game Pass", role: "no_editable", orchestrable: "not_supported", pilot_adapter: 0, blocked_reason: "Se cobra por tienda de apps o solo existe como plan largo; la fecha no se cambia desde fuera.", support_status: "no_soportado", emoji: "🕹️", sort_order: 44 },
   { id: "duolingo", name: "Duolingo", role: "cerrado", orchestrable: null, pilot_adapter: 0, blocked_reason: null, support_status: "por_verificar", emoji: "🦉", sort_order: 45 },
   { id: "rappi_pro", name: "Rappi Pro", role: "cerrado", orchestrable: null, pilot_adapter: 0, blocked_reason: null, support_status: "por_verificar", emoji: "🛍️", sort_order: 46 },
   { id: "meli_plus", name: "Mercado Libre Plus", role: "cerrado", orchestrable: null, pilot_adapter: 0, blocked_reason: null, support_status: "por_verificar", emoji: "🛒", sort_order: 47 },
@@ -187,7 +187,7 @@ export const PRICES: SeedPrice[] = [
 
   // Sin precio verificado. Se registran igual para que aparezcan en el catálogo
   // y en el reporte de "falta verificar", en vez de desaparecer en silencio.
-  p("amazon_prime", "mensual", null),
+  p("amazon_prime", "mensual", null, { note: "Solo el plan mensual contratado directo es orquestable; el anual no." }),
   p("xbox_game_pass", "mensual", null),
   p("duolingo", "super", null),
   p("rappi_pro", "mensual", null),

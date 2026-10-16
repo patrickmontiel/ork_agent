@@ -68,6 +68,16 @@ export interface RunResult {
   finalState: ServiceState | null;
   retries: number;
   accountRestricted: boolean;
+  /**
+   * ¿La persona se quedó SIN servicio por culpa de esta corrida?
+   *
+   * Solo es cierto si la cancelación se verificó y el servicio nunca volvió a
+   * quedar activo. No cuenta el fallo bueno (cancelar falló, nada cambió), ni
+   * los días sin servicio que la persona eligió a sabiendas en el trade-off:
+   * eso está avisado y aceptado. Esto es el corte que Ork provocó y no supo
+   * deshacer, y es la métrica que puede hundir el piloto.
+   */
+  serviceGap: boolean;
   /** Qué decirle a la persona cuando algo salió mal. */
   userMessage: string;
   /** Pasos manuales, cuando Ork ya no puede arreglarlo solo. */
@@ -84,6 +94,10 @@ export async function runOrchestration(input: RunInput): Promise<RunResult> {
   let priorState: ServiceState | null = null;
   let retries = 0;
 
+  // cancelacionVerificada: a partir de aquí la persona está fuera del servicio,
+  // así que cualquier salida que no sea "completado" la deja sin él.
+  let cancelacionVerificada = false;
+
   const fail = (
     state: RunState,
     userMessage: string,
@@ -96,6 +110,7 @@ export async function runOrchestration(input: RunInput): Promise<RunResult> {
     finalState: null,
     retries,
     accountRestricted,
+    serviceGap: cancelacionVerificada,
     userMessage,
     manualSteps,
   });
@@ -161,6 +176,8 @@ export async function runOrchestration(input: RunInput): Promise<RunResult> {
       "No pudimos confirmar el cambio con el servicio, así que lo detuvimos. Tu suscripción sigue igual.",
     );
   }
+
+  cancelacionVerificada = true;
 
   // ── 3. Recontratar, con reintentos ────────────────────────────────────────
   let resubOk = false;
@@ -242,6 +259,7 @@ export async function runOrchestration(input: RunInput): Promise<RunResult> {
     finalState: vResub.actual,
     retries,
     accountRestricted: false,
+    serviceGap: false,
     userMessage: `Tu ${capitalize(adapter.serviceId)} ahora se cobra el día ${targetDay}.`,
   };
 }

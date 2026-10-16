@@ -29,7 +29,11 @@ export type EventType =
   | "mandate.revoked"
   // Cobro
   | "fee.charged"
-  | "fee.skipped";
+  | "fee.skipped"
+  // Rescate: el comercio avisó que no pudo cobrar
+  | "rescue.sent"
+  // Premium de Ork (no del comercio: su dinero nunca pasa por aquí)
+  | "ork_premium.payment_failed";
 
 export interface TrackInput {
   type: EventType;
