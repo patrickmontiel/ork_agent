@@ -244,3 +244,58 @@ test("si el recontrato se recupera en un reintento, no hubo corte final", async 
   assert.ok(result.retries >= 1, "hubo reintentos");
   assert.equal(result.serviceGap, false, "volvió a quedar activo: no se cuenta como corte");
 });
+
+// ─── La regla real de Spotify, y por qué el mock mentía ─────────────────────
+//
+// Spotify: "Your account needs to stay free until the day you want the new
+// billing to start. If you resubscribe before then, it will stay the same."
+//
+// El mock fijaba billingDay = targetDay sin mirar la fecha, así que la opción
+// "adelantar" pasaba los tests mientras en la vida real le habría cobrado de
+// más a la persona sin moverle nada. Estos tests fijan la regla verdadera.
+
+test("recontratar ANTES de que venza conserva la fecha vieja", async () => {
+  const adapter = new MockSpotifyAdapter({ scenario: "feliz" });
+  const antes = await adapter.getState();
+
+  await adapter.cancel();
+  // periodEnd es 2026-11-10; se reactiva el 5, o sea antes.
+  const r = await adapter.resubscribe({ onDate: "2026-11-05", plan: "individual", expectedAmount: 139 });
+
+  assert.equal(r.ok, true, "la reactivación en sí funciona");
+  const despues = await adapter.getState();
+  assert.equal(despues.status, "activa");
+  assert.equal(
+    despues.billingDay,
+    antes.billingDay,
+    "la fecha NO se movió: es justo lo que Spotify documenta",
+  );
+});
+
+test("por eso reactivar temprano sirve de ROLLBACK", async () => {
+  // El mismo mecanismo que invalida "adelantar" es el que permite deshacer.
+  const adapter = new MockSpotifyAdapter({ scenario: "feliz" });
+  const antes = await adapter.getState();
+
+  await adapter.cancel();
+  await adapter.resubscribe({ onDate: "2026-11-01", plan: antes.plan, expectedAmount: antes.paidAmount });
+
+  const despues = await adapter.getState();
+  assert.equal(despues.billingDay, antes.billingDay, "vuelve la fecha");
+  assert.equal(despues.periodEnd, antes.periodEnd, "vuelve el fin de periodo");
+  assert.equal(despues.paidAmount, antes.paidAmount, "y el precio, promo incluida");
+});
+
+test("recontratar DESPUÉS de que venza sí mueve la fecha", async () => {
+  const adapter = new MockSpotifyAdapter({ scenario: "feliz" });
+  await adapter.cancel();
+  await adapter.resubscribe({ onDate: "2026-11-16", plan: "individual", expectedAmount: 139 });
+
+  const despues = await adapter.getState();
+  assert.equal(despues.billingDay, 16, "esta es la única forma que funciona");
+});
+
+test("el adaptador declara la regla, para que la UI no ofrezca lo imposible", () => {
+  const adapter = new MockSpotifyAdapter({ scenario: "feliz" });
+  assert.equal(adapter.earlyResubscribeKeepsOldDate, true);
+});

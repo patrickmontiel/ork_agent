@@ -35,8 +35,11 @@ export class MockSpotifyAdapter implements ClosedServiceAdapter {
   readonly serviceId = "spotify";
   readonly mechanism = "cancel_resubscribe" as const;
   readonly mode = "mock" as const;
+  readonly earlyResubscribeKeepsOldDate = true;
 
   private state: ServiceState;
+  /** Fecha y día ORIGINALES, para reproducir la regla de reactivación temprana. */
+  private original: { billingDay: number | null; periodEnd: string | null; paidAmount: number | null };
   private readonly scenario: MockScenario;
   private resubAttempts = 0;
   private readonly failResubTimes: number;
@@ -53,6 +56,11 @@ export class MockSpotifyAdapter implements ClosedServiceAdapter {
       periodEnd: "2026-11-10",
       evidence: "mock",
       ...cfg.initial,
+    };
+    this.original = {
+      billingDay: this.state.billingDay,
+      periodEnd: this.state.periodEnd,
+      paidAmount: this.state.paidAmount,
     };
   }
 
@@ -120,6 +128,31 @@ export class MockSpotifyAdapter implements ClosedServiceAdapter {
         code: "resubscribed",
         message: "Listo (pero en realidad no cambió nada).",
         evidence: "mock:resubscribe:silent",
+      };
+    }
+
+    // LA REGLA REAL DE SPOTIFY, que este mock antes ignoraba.
+    //
+    // Si se reactiva ANTES de que venza el periodo pagado, la fecha de cobro NO
+    // se mueve: vuelve a ser la de siempre. Durante mucho tiempo este mock fijó
+    // billingDay = targetDay sin mirar la fecha, y por eso la opción
+    // "adelantar" parecía funcionar en los tests cuando en la vida real le
+    // habría cobrado de más a la persona sin moverle nada.
+    if (this.original.periodEnd && input.onDate <= this.original.periodEnd) {
+      this.state = {
+        ...this.state,
+        status: "activa",
+        plan: input.plan ?? this.state.plan,
+        // Se restaura TODO lo de antes: por eso esto sirve como rollback.
+        paidAmount: this.original.paidAmount,
+        billingDay: this.original.billingDay,
+        periodEnd: this.original.periodEnd,
+      };
+      return {
+        ok: true,
+        code: "reactivated_same_date",
+        message: `Reactivamos tu suscripción. Tu fecha de cobro sigue siendo el día ${this.original.billingDay}.`,
+        evidence: "mock:resubscribe:early_keeps_date",
       };
     }
 

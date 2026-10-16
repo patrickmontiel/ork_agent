@@ -107,6 +107,8 @@ export async function POST(req: NextRequest) {
     currency: state.currency,
     today: todayCDMX(),
     losesPromo: pierdePromo,
+    // Lo decide el adaptador, no la UI: es una propiedad del servicio real.
+    allowEarlyResubscribe: !adapter.earlyResubscribeKeepsOldDate,
   });
 
   const us = getUserService(user.id, service.id);

@@ -86,6 +86,48 @@ Es una de las métricas de la Fase 5.
 
 ---
 
+## Motor de dos fases (después del reconocimiento) — requisitos ya decididos
+
+El recontrato ocurre días después del cancelar y, en Ruta A, exige a la persona
+presente. Son DOS sesiones asistidas, y el motor actual no lo sabe expresar.
+
+Decidido con Patrick el 16-oct-2026, a implementar junto con el motor:
+
+- Estado intermedio en `orchestrations` (p. ej. `esperando_recontrato`) con la
+  fecha programada de la sesión 2.
+- **Recordatorio el día objetivo.** Sin esto la persona no aparece y el hueco
+  avisado se vuelve indefinido.
+- **Métrica nueva: "sesión 2 que nunca ocurrió".** Es el peor caso del piloto
+  —alguien sin su servicio por culpa de Ork— y hoy no lo mide nada. No confundir
+  con `pilot.service_gap`, que es el corte provocado por un fallo técnico.
+- Recordatorio ANTES de `periodEnd`, mientras todavía se puede deshacer.
+
+---
+
+## 🔴 BLOQUEANTE: la cuenta del piloto es Duo, no Individual
+
+Patrick confirmó el 16-oct-2026 que su Spotify es **Duo contratado directo**.
+Eso **bloquea el piloto mutante** hasta resolverlo. Tres razones, de la
+documentación de Spotify:
+
+1. **Hay una segunda persona.** En Duo los miembros tienen cuentas separadas con
+   Premium. Cancelar deja sin servicio a alguien que **nunca firmó un mandato
+   con Ork**. Todo el modelo de consentimiento cubre al titular, no al miembro.
+2. **Hay que reinvitar.** "If you had a Duo or Family plan, you'll need to
+   invite your members again." El recontrato no termina al pagar: el miembro
+   tiene que aceptar.
+3. **"Plan members can only switch plans once every 12 months."** Si salir y
+   volver a entrar cuenta como cambiar de plan, el miembro podría quedar
+   **bloqueado 12 meses**. Eso sería irreversible y catastrófico.
+
+La Fase 0 de solo lectura **sí** se puede correr en una cuenta Duo: no muta
+nada. Lo que no se puede es cancelar.
+
+Opciones: conseguir una cuenta Individual de prueba, o verificar con soporte de
+Spotify qué pasa exactamente con el miembro. **Decisión pendiente de Patrick.**
+
+---
+
 ## Deuda conocida
 
 ### Tipar `lib/agent.ts`, `lib/rails/reap-rail.ts`, `lib/reap.ts`

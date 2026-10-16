@@ -31,6 +31,11 @@ export class MockNetflixAdapter implements ClosedServiceAdapter {
   readonly serviceId = "netflix";
   readonly mechanism = "pause" as const;
   readonly mode = "mock" as const;
+  // Netflix usa PAUSA, no cancelar-y-recontratar, así que la regla de Spotify
+  // no aplica tal cual. Pero nadie ha verificado qué hace Netflix si se
+  // reanuda antes de tiempo, así que se usa el default seguro: no ofrecer
+  // "adelantar" hasta comprobarlo en una cuenta real.
+  readonly earlyResubscribeKeepsOldDate = true;
 
   private state: ServiceState;
   private readonly scenario: NetflixScenario;

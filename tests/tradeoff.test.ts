@@ -16,6 +16,11 @@ const base = {
   targetDay: 16,
   monthlyAmount: 139, // Spotify individual
   today: "2026-10-15",
+  // "adelantar" solo se ofrece donde el servicio de verdad mueve la fecha al
+  // recontratar antes de que venza. En Spotify NO es así (ver abajo), pero la
+  // aritmética de la opción se prueba igual, para el día que exista un
+  // servicio donde sí sirva.
+  allowEarlyResubscribe: true,
 };
 
 // ─── Opción A: esperar ──────────────────────────────────────────────────────
@@ -65,6 +70,7 @@ test("la tarifa diaria usa el mes real, no 30 fijo", () => {
     targetDay: 5,
     monthlyAmount: 280,
     today: "2027-01-20",
+    allowEarlyResubscribe: true,
   });
   // Del 5-feb al 10-feb son 5 días. 280/28 = 10 por día → 50.
   assert.ok(feb.adelantar);
@@ -76,6 +82,7 @@ test("la tarifa diaria usa el mes real, no 30 fijo", () => {
     targetDay: 5,
     monthlyAmount: 280,
     today: "2026-12-20",
+    allowEarlyResubscribe: true,
   });
   // Mismos 5 días, pero 280/31 = 9.03 por día → 45.16.
   assert.equal(ene.adelantar?.daysPaidTwice, 5);
@@ -118,7 +125,7 @@ test("sin promo y con pocos días, no hay confirmación reforzada", () => {
 // ─── Recomendación ──────────────────────────────────────────────────────────
 
 test("con muchos días sin servicio, recomienda adelantar", () => {
-  const t = computeTradeoff({ periodEnd: "2026-11-02", targetDay: 16, monthlyAmount: 139, today: "2026-10-15" });
+  const t = computeTradeoff({ periodEnd: "2026-11-02", targetDay: 16, monthlyAmount: 139, today: "2026-10-15", allowEarlyResubscribe: true });
   assert.ok(t.esperar.daysWithoutService >= REINFORCED_GAP_DAYS);
   assert.equal(t.recommended, "adelantar");
 });
@@ -133,7 +140,7 @@ test("las dos opciones son complementarias: nunca son baratas a la vez", () => {
   // Espera + días dobles suman siempre un ciclo completo. Es la razón de que
   // la recomendación solo tenga dos casos reales.
   for (const periodEnd of ["2026-11-02", "2026-11-10", "2026-11-13", "2026-11-20"]) {
-    const t = computeTradeoff({ periodEnd, targetDay: 16, monthlyAmount: 139, today: "2026-10-15" });
+    const t = computeTradeoff({ periodEnd, targetDay: 16, monthlyAmount: 139, today: "2026-10-15", allowEarlyResubscribe: true });
     if (!t.adelantar || t.alreadyOnTarget) continue;
     const suma = t.esperar.daysWithoutService + t.adelantar.daysPaidTwice;
     assert.ok(
@@ -179,7 +186,7 @@ test("los resúmenes llevan el número, no un adjetivo", () => {
 });
 
 test("un solo día se escribe en singular", () => {
-  const t = computeTradeoff({ periodEnd: "2026-11-15", targetDay: 16, monthlyAmount: 139, today: "2026-10-20" });
+  const t = computeTradeoff({ periodEnd: "2026-11-15", targetDay: 16, monthlyAmount: 139, today: "2026-10-20", allowEarlyResubscribe: true });
   assert.equal(t.esperar.daysWithoutService, 1);
   assert.match(t.esperar.summary, /1 día sin servicio/);
 });
@@ -187,4 +194,24 @@ test("un solo día se escribe en singular", () => {
 test("moneda USD se formatea distinto", () => {
   const t = computeTradeoff({ ...base, monthlyAmount: 20, currency: "USD" });
   assert.match(t.adelantar!.summary, /US\$/);
+});
+
+
+// ─── La regla de Spotify: "adelantar" no existe ahí ─────────────────────────
+//
+// Spotify lo documenta: "Your account needs to stay free until the day you want
+// the new billing to start. If you resubscribe before then, it will stay the
+// same." Recontratar antes de que venza NO mueve la fecha, así que ofrecer esa
+// opción sería cobrarle de más a la persona a cambio de nada.
+
+test("sin la capacidad declarada, adelantar NO se ofrece", () => {
+  const t = computeTradeoff({ ...base, allowEarlyResubscribe: false });
+  assert.equal(t.adelantar, null, "no se ofrece una opción que no mueve la fecha");
+  assert.ok(t.esperar, "esperar sigue siendo una opción real");
+});
+
+test("el default es NO ofrecerla: una opción sin verificar no se ofrece", () => {
+  const { allowEarlyResubscribe: _, ...sinBandera } = base;
+  const t = computeTradeoff(sinBandera);
+  assert.equal(t.adelantar, null);
 });

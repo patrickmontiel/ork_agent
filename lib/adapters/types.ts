@@ -59,6 +59,23 @@ export interface ClosedServiceAdapter {
   /** ¿Es el mock o el real? Se registra en cada orquestación. */
   readonly mode: "mock" | "real";
 
+  /**
+   * ¿Recontratar ANTES de que venza el periodo pagado conserva la fecha vieja?
+   *
+   * En Spotify sí, y está documentado por ellos:
+   *   "Your account needs to stay free until the day you want the new billing
+   *    to start. If you resubscribe before then, it will stay the same."
+   *
+   * Cuando es true, la opción "adelantar" del trade-off NO SIRVE: la persona
+   * pagaría de más y la fecha no se movería. Hay que esconderla.
+   *
+   * Y tiene su lado bueno: es exactamente el mecanismo de ROLLBACK. Reactivar
+   * antes de que venza restaura el estado original.
+   *
+   * El default seguro es true. No ofrecemos una opción que no sabemos probar.
+   */
+  readonly earlyResubscribeKeepsOldDate: boolean;
+
   /** Lee el estado actual. No muta nada. */
   getState(): Promise<ServiceState>;
 

@@ -60,6 +60,17 @@ export interface TradeoffInput {
   today: string;
   /** ¿Perdería una promo al recontratar? */
   losesPromo?: boolean;
+  /**
+   * ¿Tiene sentido ofrecer "adelantar" en este servicio?
+   *
+   * false cuando recontratar antes de que venza conserva la fecha vieja (es el
+   * caso de Spotify, documentado por ellos). Ahí la opción no solo no ayuda:
+   * le cobraría de más a la persona sin moverle nada.
+   *
+   * El default es false a propósito. Una opción que no sabemos probar no se
+   * ofrece.
+   */
+  allowEarlyResubscribe?: boolean;
 }
 
 export interface Tradeoff {
@@ -168,7 +179,8 @@ export function computeTradeoff(input: TradeoffInput): Tradeoff {
   // ── Opción B: recontratar antes de que venza, pagando días repetidos ─────
   // Solo existe si el día objetivo cae dentro de lo que queda del periodo
   // pagado. Si el usuario ya pasó ese día este ciclo, esta opción no está.
-  const resubEarly = occurrenceBefore(periodEnd, targetDay, today);
+  const allowEarly = input.allowEarlyResubscribe ?? false;
+  const resubEarly = allowEarly ? occurrenceBefore(periodEnd, targetDay, today) : null;
   let adelantar: TradeoffOption | null = null;
 
   if (resubEarly && !alreadyOnTarget) {
