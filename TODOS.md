@@ -95,23 +95,11 @@ ese bloque de overrides.
 
 ### Vulnerabilidades de dependencias — de 12 a 7, sin críticas (16-oct-2026)
 
-Next 14 **no tenía versión parcheada**: toda la línea 14.x era vulnerable,
-incluidas dos RCE críticas. Se subió a **Next 15.5.28** (React 18 sigue siendo
-peer válido, así que no hubo que saltar a React 19) y se agregaron `overrides`
-para `postcss` (next fija 8.4.31) y `postcss-selector-parser`.
+Documentadas en `SECURITY.md`, con el razonamiento completo. En corto: las 7
+son `braces`, no tiene parche publicado, y vive solo en `devDependencies`, así
+que no llega al bundle de producción. Cerrarlas exige Tailwind 4.
 
-Quedan 7, todas `high` y **todas del mismo origen**: `braces`, con un DoS por
-agotamiento de pila. No tiene versión parcheada publicada — la última, 3.0.3,
-sigue en el rango vulnerable. Llega por `micromatch → fast-glob → chokidar`,
-que usan el watcher de Tailwind 3 y el escáner de archivos del plugin de ESLint
-de Next. Las dos son herramientas de build: el patrón de glob lo pone nuestro
-propio repo, no un atacante, así que no es superficie de ataque en runtime.
-
-Para llegar a cero hace falta **Tailwind 4** (cambia a oxide y deja de usar
-chokidar/micromatch) y el plugin de ESLint de **Next 16**. Tailwind 4 reescribe
-la configuración a CSS-first, o sea tocar `tailwind.config.ts` y `globals.css`
-enteros. No se hizo aquí porque era cambiar el sistema de diseño en el mismo
-movimiento que el parche de seguridad.
+Decisión de Patrick: se retoma **después del piloto**.
 
 ### `app/page.tsx` del buildathon: movido, no borrado (16-oct-2026)
 Vive en `/legacy/reap`. Sigue siendo la demo del rail agéntico de Reap y del
