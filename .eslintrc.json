@@ -6,7 +6,7 @@
     // tres archivos para que `next build` pase; en todo el código de v2 la
     // regla sigue siendo error. Al tiparlos, borra este bloque.
     {
-      "files": ["lib/agent.ts", "lib/billing.ts", "lib/reap.ts"],
+      "files": ["lib/agent.ts", "lib/rails/reap-rail.ts", "lib/reap.ts"],
       "rules": {
         "@typescript-eslint/no-explicit-any": "warn"
       }

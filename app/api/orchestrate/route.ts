@@ -10,6 +10,8 @@ import { detectPromo, promoLost } from "@/lib/pilot/promo";
 import { runOrchestration } from "@/lib/pilot/run";
 import * as orch from "@/lib/db/repo/orchestrations";
 import { todayCDMX } from "@/lib/db";
+import { chargeFeeAfterSuccess } from "@/lib/billing/fee";
+import { track } from "@/lib/db/repo/events";
 
 export const dynamic = "force-dynamic";
 
@@ -218,18 +220,39 @@ export async function PUT(req: NextRequest) {
     });
   }
 
+  const exito = result.state === "completado";
+
   // Solo se escribe la fecha nueva si de verdad quedó movida y verificada.
-  if (result.state === "completado" && row.user_service_id && result.finalState?.periodEnd) {
+  if (exito && row.user_service_id && result.finalState?.periodEnd) {
     applyNewDate(row.user_service_id, row.to_day!, result.finalState.periodEnd);
   }
 
+  // El fee se cobra SOLO tras un éxito verificado. Si Ork no movió la fecha,
+  // Ork no cobra — y "la API no falló" no cuenta como haberla movido.
+  // Que el cobro falle nunca invalida una orquestación que sí funcionó: por eso
+  // va al final y su error no tumba la respuesta.
+  let cobro: { url: string; monto: number; moneda: string } | null = null;
+  try {
+    const fee = await chargeFeeAfterSuccess(user, row.id, exito);
+    if (fee.charged) cobro = { url: fee.checkoutUrl, monto: fee.amount, moneda: fee.currency };
+  } catch (e) {
+    track({
+      type: "fee.skipped",
+      userId: user.id,
+      orchestrationId: row.id,
+      severity: "warn",
+      payload: { motivo: e instanceof Error ? e.message : String(e) },
+    });
+  }
+
   return NextResponse.json({
-    ok: result.state === "completado",
+    ok: exito,
     estado: result.state,
     mensaje: result.userMessage,
     pasosManuales: result.manualSteps ?? null,
     reintentos: result.retries,
     cuentaRestringida: result.accountRestricted,
     eventos: result.events.map((e) => ({ tipo: e.type, mensaje: e.message })),
+    cobro,
   });
 }

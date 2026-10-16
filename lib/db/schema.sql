@@ -276,3 +276,45 @@ CREATE TABLE IF NOT EXISTS pilot_switch (
 
 INSERT OR IGNORE INTO pilot_switch (id, adapters_live, updated_at)
 VALUES (1, 0, datetime('now'));
+
+-- ─── Stripe ─────────────────────────────────────────────────────────────────
+
+-- Idempotencia de webhooks. Stripe NO garantiza entrega única: reenvía ante
+-- cualquier duda. Sin esta tabla, un reenvío de checkout.session.completed
+-- cobraría dos veces o activaría Premium dos veces.
+CREATE TABLE IF NOT EXISTS stripe_events (
+  event_id    TEXT PRIMARY KEY,   -- evt_... de Stripe
+  type        TEXT NOT NULL,
+  received_at TEXT NOT NULL,
+  processed_at TEXT,
+  result      TEXT                -- 'ok' | 'ignorado' | mensaje de error
+);
+
+CREATE INDEX IF NOT EXISTS idx_stripe_events_type ON stripe_events (type, received_at);
+
+-- Cobros de Ork a la persona. NO son los cobros de la suscripción: el dinero
+-- del merchant nunca pasa por aquí.
+--   'fee'     → tarifa por una orquestación exitosa (plan Free)
+--   'premium' → mensualidad de Ork
+CREATE TABLE IF NOT EXISTS charges (
+  id            TEXT PRIMARY KEY,
+  user_id       TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  kind          TEXT NOT NULL CHECK (kind IN ('fee', 'premium')),
+  -- Qué orquestación lo originó. Solo para 'fee'.
+  orchestration_id TEXT REFERENCES orchestrations (id) ON DELETE SET NULL,
+  amount        REAL NOT NULL,
+  currency      TEXT NOT NULL DEFAULT 'MXN',
+  status        TEXT NOT NULL,    -- 'pendiente' | 'pagado' | 'fallido' | 'cancelado'
+  stripe_session_id TEXT,
+  stripe_payment_intent TEXT,
+  created_at    TEXT NOT NULL,
+  paid_at       TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_charges_user ON charges (user_id, created_at);
+-- Un fee por orquestación. Es la reja final contra el doble cobro, por debajo
+-- de la idempotencia de webhooks.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_charges_one_fee_per_orch
+  ON charges (orchestration_id) WHERE kind = 'fee' AND orchestration_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_charges_session
+  ON charges (stripe_session_id) WHERE stripe_session_id IS NOT NULL;

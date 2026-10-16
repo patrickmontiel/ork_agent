@@ -50,9 +50,29 @@ no soportado?
 
 ---
 
+## Abierto de la Fase 4 (cobros)
+
+### Un fee que queda en `fallido` no se reintenta
+
+Si la sesión de Checkout expira o el pago falla, el webhook marca el cobro como
+`fallido` y ahí se queda: `/api/stripe/fee-link` solo retoma los `pendiente`.
+Hoy eso significa que Ork pierde ese cobro, lo cual es el lado seguro del error,
+pero no es la conducta final.
+
+Va con la Fase 5, junto al webhook de `payment_failed` y el mensaje de rescate.
+
+### El fee se cobra con link, no con cargo automático
+
+Ork no guarda la tarjeta ni cobra off-session: devuelve un link de Checkout que
+la persona abre. Es deliberado —se ve lo que se paga antes de pagarlo— pero hay
+que medir cuántos links terminan pagados antes de dar por buena la economía.
+Es una de las métricas de la Fase 5.
+
+---
+
 ## Deuda conocida
 
-### Tipar `lib/agent.ts`, `lib/billing.ts`, `lib/reap.ts`
+### Tipar `lib/agent.ts`, `lib/rails/reap-rail.ts`, `lib/reap.ts`
 ~25 `any` heredados del buildathon. Hoy están acotados a aviso en
 `.eslintrc.json`; en el resto del código la regla es error. Al tiparlos, borrar
 ese bloque de overrides.

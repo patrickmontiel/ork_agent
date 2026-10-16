@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { log, publicState, reset, state } from "@/lib/store";
-import { adoptEnrollment, decide, registerCard } from "@/lib/billing";
+import { adoptEnrollment, decide, registerCard } from "@/lib/rails/reap-rail";
 import { runTool } from "@/lib/agent";
 
 export const dynamic = "force-dynamic";

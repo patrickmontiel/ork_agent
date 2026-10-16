@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { publicState } from "@/lib/store";
-import { recoverActiveEnrollment, refreshEnrollment, refreshPendingCheckouts } from "@/lib/billing";
+import { recoverActiveEnrollment, refreshEnrollment, refreshPendingCheckouts } from "@/lib/rails/reap-rail";
 
 export const dynamic = "force-dynamic";
 
