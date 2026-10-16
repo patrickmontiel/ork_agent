@@ -182,5 +182,17 @@ export function migrate(d: Database): string[] {
     }
   }
 
+  // ─── orchestrations: las columnas de la fase 2 ────────────────────────────
+  // El recontrato ocurre días después de la cancelación, así que la
+  // orquestación tiene que poder quedarse esperando sin perder el hilo.
+  for (const [col, ddl] of [
+    ["undo_deadline", "TEXT"],
+    ["reminded_undo_at", "TEXT"],
+    ["reminded_due_at", "TEXT"],
+    ["abandoned_at", "TEXT"],
+  ] as const) {
+    if (addColumn(d, "orchestrations", col, ddl)) done.push(`orchestrations.${col}`);
+  }
+
   return done;
 }

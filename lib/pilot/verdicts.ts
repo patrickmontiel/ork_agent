@@ -65,3 +65,20 @@ export function verdictDesventaja(rechazos: number, vieron: number): Verdict {
   if (vieron < MIN_TRADEOFFS_VISTOS) return "sin_datos";
   return (rechazos / vieron) * 100 >= 50 ? "alerta" : "bien";
 }
+
+
+/**
+ * Sesiones 2 que nunca ocurrieron. Meta: 0.
+ *
+ * Es el peor caso del piloto: Ork canceló, la persona nunca volvió a
+ * recontratar y se quedó sin su servicio. No hay "alerta" porque no hay una
+ * cantidad aceptable: una sola persona en ese estado ya es un fracaso del
+ * producto, no una estadística.
+ *
+ * Con cero fases 1 no hay dato; con fases 1 y ninguna abandonada, el cero SÍ
+ * es información.
+ */
+export function verdictSesion2Perdida(abandonadas: number, fase1: number): Verdict {
+  if (fase1 === 0) return "sin_datos";
+  return abandonadas === 0 ? "bien" : "mal";
+}

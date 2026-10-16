@@ -129,8 +129,8 @@ function p(
 export const PRICES: SeedPrice[] = [
   // Música
   p("spotify", "individual", 139),
-  p("spotify", "duo", 189),
-  p("spotify", "familiar", 239),
+  p("spotify", "duo", 189, { note: "Plan compartido: Ork NO lo orquesta (afecta al segundo miembro)." }),
+  p("spotify", "familiar", 239, { note: "Plan compartido: Ork NO lo orquesta (afecta a los miembros)." }),
   p("spotify", "estudiantes", 74),
   p("apple_music", "individual", 139),
   p("apple_music", "familiar", 239),

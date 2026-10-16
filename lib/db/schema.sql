@@ -217,6 +217,15 @@ CREATE TABLE IF NOT EXISTS orchestrations (
   confirmed_at    TEXT,
   error           TEXT,
   fee_charged     INTEGER NOT NULL DEFAULT 0,
+  -- ── Fase 2: el recontrato ocurre DÍAS después de la cancelación ──
+  -- Hasta cuándo se puede deshacer reactivando (= fin del periodo pagado).
+  -- Pasada esta fecha, la fecha de cobro vieja se perdió para siempre.
+  undo_deadline   TEXT,
+  -- Cuándo se le avisó que todavía podía deshacerlo, y cuándo que ya tocaba.
+  reminded_undo_at TEXT,
+  reminded_due_at  TEXT,
+  -- La fase 2 nunca ocurrió y ya pasó la ventana. Es el peor caso del piloto.
+  abandoned_at    TEXT,
   created_at      TEXT NOT NULL,
   updated_at      TEXT NOT NULL
 );

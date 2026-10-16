@@ -24,6 +24,12 @@ export type EventType =
   | "pilot.account_restricted" // el servicio restringió la cuenta → apagado
   | "pilot.promo_lost"
   | "pilot.cancelled_for_disadvantage"
+  // La fase 2 nunca ocurrió: alguien quedó sin su servicio por culpa de Ork
+  | "pilot.second_session_missed"
+  | "orchestration.waiting_resubscribe"
+  | "orchestration.undone"
+  // Resumen del barrido de recordatorios. NO alimenta ninguna métrica.
+  | "pilot.sweep"
   // Mandatos
   | "mandate.granted"
   | "mandate.revoked"

@@ -104,7 +104,21 @@ Decidido con Patrick el 16-oct-2026, a implementar junto con el motor:
 
 ---
 
-## 🔴 BLOQUEANTE: la cuenta del piloto es Duo, no Individual
+## Duo y Family: fuera, por decisión (16-oct-2026)
+
+**Resuelto a nivel de código, no de catálogo.** `lib/pilot/plan-support.ts` es
+una reja pura que corre en `/api/orchestrate` ANTES del trade-off: a un plan
+compartido ni siquiera se le muestran números.
+
+Va por plan y no por servicio a propósito: Spotify SÍ es orquestable, lo que no
+es orquestable es un plan Duo. Eso solo se sabe al leer la cuenta.
+
+El default ante un plan desconocido es NO tocarlo.
+
+Pendiente: confirmar con soporte de Spotify qué le pasa exactamente al miembro
+de un Duo si el titular cancela y recontrata. Hasta entonces, no se abre.
+
+## 🔴 Contexto original del bloqueo
 
 Patrick confirmó el 16-oct-2026 que su Spotify es **Duo contratado directo**.
 Eso **bloquea el piloto mutante** hasta resolverlo. Tres razones, de la

@@ -6,6 +6,7 @@ import {
   verdictRestringidas,
   verdictComprension,
   verdictDesventaja,
+  verdictSesion2Perdida,
   MIN_ORQUESTACIONES,
   MIN_ENCUESTAS,
   MIN_TRADEOFFS_VISTOS,
@@ -178,6 +179,38 @@ function cancelacionesPorDesventaja(): Metric {
   };
 }
 
+// ─── 6. Sesiones 2 que nunca ocurrieron ─────────────────────────────────────
+
+function sesion2Perdida(): Metric {
+  // Base: cuántas veces Ork llegó a cancelar. Solo esas pueden quedarse
+  // colgadas, así que es el universo correcto.
+  const fase1 = count(
+    `SELECT COUNT(*) AS n FROM orchestrations
+      WHERE state IN ('esperando_recontrato', 'abandonado', 'completado', 'incidente')
+        AND confirmed_at IS NOT NULL`,
+  );
+  const abandonadas = count(
+    "SELECT COUNT(*) AS n FROM orchestrations WHERE abandoned_at IS NOT NULL",
+  );
+  const esperando = count(
+    "SELECT COUNT(*) AS n FROM orchestrations WHERE state = 'esperando_recontrato' AND abandoned_at IS NULL",
+  );
+
+  return {
+    key: "sesion2_perdida",
+    label: "Se quedaron sin recontratar",
+    target: "0. No hay cantidad aceptable",
+    value: fase1 === 0 ? "—" : `${abandonadas} de ${fase1}`,
+    verdict: verdictSesion2Perdida(abandonadas, fase1),
+    detail:
+      fase1 === 0
+        ? "Todavía no se ha cancelado nada, así que nadie puede estar esperando."
+        : `Ork canceló y la persona nunca volvió a contratar. ${esperando} esperando ahora mismo.`,
+    action:
+      "Cada una es una persona sin su servicio por culpa de Ork. Háblale antes de mirar el resto del tablero.",
+  };
+}
+
 // ─── Tablero ────────────────────────────────────────────────────────────────
 
 export function pilotMetrics(): Metric[] {
@@ -187,6 +220,7 @@ export function pilotMetrics(): Metric[] {
     cuentasRestringidas(),
     comprension(),
     cancelacionesPorDesventaja(),
+    sesion2Perdida(),
   ];
 }
 
@@ -208,7 +242,8 @@ export function recentIncidents(limit = 25): Incident[] {
          FROM events
         WHERE severity IN ('warn', 'critical')
            OR type IN ('pilot.service_gap', 'pilot.account_restricted',
-                       'orchestration.incident', 'pilot.cancelled_for_disadvantage')
+                       'orchestration.incident', 'pilot.cancelled_for_disadvantage',
+                       'pilot.second_session_missed')
         ORDER BY id DESC
         LIMIT ?`,
     )

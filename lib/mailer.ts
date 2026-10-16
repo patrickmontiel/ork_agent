@@ -188,3 +188,87 @@ export async function sendRescue(input: {
 
   return send({ to, subject: `No se pudo cobrar tu ${serviceName}`, html, text });
 }
+
+/** Todavía puedes deshacerlo: se manda ANTES de que venza el periodo pagado. */
+export async function sendUndoReminder(input: {
+  to: string;
+  serviceName: string;
+  undoDeadline: string;
+  resubDate: string;
+  undoUrl: string;
+}): Promise<MailResult> {
+  const { serviceName, undoDeadline, resubDate } = input;
+  const text = [
+    `Todavía puedes echar atrás el cambio de ${serviceName}`,
+    "",
+    `Cancelamos tu ${serviceName} para mover tu fecha de cobro, y el plan sigue: el ${resubDate} hay que volver a contratarlo.`,
+    "",
+    `Si cambiaste de opinión, hasta el ${undoDeadline} puedes dejar todo como estaba y tu fecha de cobro de siempre se queda igual.`,
+    "",
+    `Después del ${undoDeadline} ya no se puede deshacer: tu fecha anterior se pierde.`,
+    "",
+    input.undoUrl,
+  ].join("\n");
+
+  const html = `<!doctype html>
+<html lang="es-MX"><body style="margin:0;background:#0B0D17;color:#F2F4F7;font-family:system-ui,-apple-system,sans-serif;padding:40px 20px">
+  <div style="max-width:440px;margin:0 auto">
+    <div style="font-size:28px;font-weight:700;letter-spacing:-.02em">ork<span style="color:#6C2EFF">.</span></div>
+    <h1 style="font-size:22px;font-weight:600;margin:28px 0 10px">Todavía puedes echarlo atrás</h1>
+    <p style="color:#9AA1B4;line-height:1.6;margin:0 0 18px">
+      Cancelamos tu <strong style="color:#F2F4F7">${serviceName}</strong> para mover tu fecha de cobro.
+      El plan sigue: el <strong style="color:#F2F4F7">${resubDate}</strong> hay que volver a contratarlo.
+    </p>
+    <p style="color:#9AA1B4;line-height:1.6;margin:0 0 26px">
+      Si cambiaste de opinión, hasta el <strong style="color:#F2F4F7">${undoDeadline}</strong> puedes dejar
+      todo como estaba. Después de esa fecha ya no se puede: tu fecha anterior se pierde.
+    </p>
+    <a href="${input.undoUrl}" style="display:inline-block;background:#6C2EFF;color:#fff;text-decoration:none;padding:14px 26px;border-radius:10px;font-weight:600">Dejar todo como estaba</a>
+  </div>
+</body></html>`;
+
+  return send({ to: input.to, subject: `Todavía puedes echar atrás lo de ${serviceName}`, html, text });
+}
+
+/** Hoy toca recontratar. Sin esto, la persona no aparece y se queda sin servicio. */
+export async function sendResubscribeReminder(input: {
+  to: string;
+  serviceName: string;
+  resubDate: string;
+  targetDay: number;
+  actionUrl: string;
+}): Promise<MailResult> {
+  const { serviceName, targetDay } = input;
+  const text = [
+    `Hoy toca reactivar tu ${serviceName}`,
+    "",
+    `Hoy es el día: si vuelves a contratar tu ${serviceName} hoy, tu cobro queda fijado el día ${targetDay} de cada mes, que es lo que pediste.`,
+    "",
+    `Necesitamos que entres tú: Ork nunca guarda tu contraseña.`,
+    "",
+    input.actionUrl,
+    "",
+    `Si lo dejas pasar, te quedas sin ${serviceName} hasta que lo reactives, y la fecha podría no quedar en el día ${targetDay}.`,
+  ].join("\n");
+
+  const html = `<!doctype html>
+<html lang="es-MX"><body style="margin:0;background:#0B0D17;color:#F2F4F7;font-family:system-ui,-apple-system,sans-serif;padding:40px 20px">
+  <div style="max-width:440px;margin:0 auto">
+    <div style="font-size:28px;font-weight:700;letter-spacing:-.02em">ork<span style="color:#6C2EFF">.</span></div>
+    <h1 style="font-size:22px;font-weight:600;margin:28px 0 10px">Hoy toca reactivar tu ${serviceName}</h1>
+    <p style="color:#9AA1B4;line-height:1.6;margin:0 0 18px">
+      Si lo vuelves a contratar <strong style="color:#F2F4F7">hoy</strong>, tu cobro queda fijado el
+      <strong style="color:#F2F4F7">día ${targetDay}</strong> de cada mes. Es lo que pediste.
+    </p>
+    <p style="color:#9AA1B4;line-height:1.6;margin:0 0 26px">
+      Necesitamos que entres tú: Ork nunca guarda tu contraseña.
+    </p>
+    <a href="${input.actionUrl}" style="display:inline-block;background:#6C2EFF;color:#fff;text-decoration:none;padding:14px 26px;border-radius:10px;font-weight:600">Reactivar ahora</a>
+    <p style="color:#6B7385;font-size:13px;line-height:1.6;margin:28px 0 0">
+      Si lo dejas pasar, te quedas sin ${serviceName} hasta que lo reactives, y la fecha podría no quedar en el día ${targetDay}.
+    </p>
+  </div>
+</body></html>`;
+
+  return send({ to: input.to, subject: `Hoy toca reactivar tu ${serviceName}`, html, text });
+}

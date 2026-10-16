@@ -33,6 +33,10 @@ export interface OrchestrationRow {
   confirmed_at: string | null;
   error: string | null;
   fee_charged: number;
+  undo_deadline: string | null;
+  reminded_undo_at: string | null;
+  reminded_due_at: string | null;
+  abandoned_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -80,6 +84,10 @@ export function create(input: CreateInput): OrchestrationRow {
     confirmed_at: null,
     error: null,
     fee_charged: 0,
+    undo_deadline: null,
+    reminded_undo_at: null,
+    reminded_due_at: null,
+    abandoned_at: null,
     created_at: now(),
     updated_at: now(),
   };
@@ -233,4 +241,140 @@ export function finish(
       payload: { estado: result.state, retries: result.retries, mensaje: result.userMessage },
     });
   }
+}
+
+
+// ─── Fase 2 ─────────────────────────────────────────────────────────────────
+//
+// Entre cancelar y recontratar pasan días. Estas funciones son las que evitan
+// que una persona se quede colgada en ese hueco sin que nadie se entere.
+
+/** Días después del día objetivo tras los cuales se da por abandonada. */
+export const ABANDONO_TRAS_DIAS = 3;
+
+/** La fase 1 terminó bien: queda esperando el recontrato. */
+export function startWaiting(
+  orchestrationId: string,
+  undoDeadline: string | null,
+  priorState: unknown,
+): void {
+  db()
+    .prepare(
+      `UPDATE orchestrations
+          SET state = 'esperando_recontrato', undo_deadline = ?, prior_state_json = ?, updated_at = ?
+        WHERE id = ?`,
+    )
+    .run(undoDeadline, priorState ? JSON.stringify(priorState) : null, now(), orchestrationId);
+
+  track({
+    type: "orchestration.waiting_resubscribe",
+    orchestrationId,
+    payload: { undoDeadline },
+  });
+}
+
+/** Las que están esperando y ya les tocaba recontratar (to_date <= hoy). */
+export function dueForResubscribe(today: string): OrchestrationRow[] {
+  return db()
+    .prepare<[string], OrchestrationRow>(
+      `SELECT * FROM orchestrations
+        WHERE state = 'esperando_recontrato' AND abandoned_at IS NULL AND to_date <= ?
+        ORDER BY to_date`,
+    )
+    .all(today);
+}
+
+/**
+ * A quién hay que recordarle que TODAVÍA puede deshacerlo.
+ *
+ * Se avisa antes de `undo_deadline`, porque después de esa fecha deshacer ya no
+ * existe. Avisar tarde es no avisar.
+ */
+export function dueForUndoReminder(today: string, diasAntes = 2): OrchestrationRow[] {
+  // OJO: la ventana se compara contra `today`, NO contra date('now'). Usar el
+  // reloj de SQLite aquí hacía que la consulta ignorara el día que recibe, y el
+  // aviso de deshacer —el único con fecha de caducidad real— no salía nunca.
+  return db()
+    .prepare<[string, string, string], OrchestrationRow>(
+      `SELECT * FROM orchestrations
+        WHERE state = 'esperando_recontrato'
+          AND abandoned_at IS NULL
+          AND reminded_undo_at IS NULL
+          AND undo_deadline IS NOT NULL
+          AND undo_deadline > ?
+          AND date(undo_deadline, '-' || ? || ' days') <= ?
+        ORDER BY undo_deadline`,
+    )
+    .all(today, String(diasAntes), today);
+}
+
+/** A quién hay que avisarle que HOY toca recontratar. */
+export function dueForDueReminder(today: string): OrchestrationRow[] {
+  return db()
+    .prepare<[string], OrchestrationRow>(
+      `SELECT * FROM orchestrations
+        WHERE state = 'esperando_recontrato'
+          AND abandoned_at IS NULL
+          AND reminded_due_at IS NULL
+          AND to_date <= ?
+        ORDER BY to_date`,
+    )
+    .all(today);
+}
+
+export function markReminded(orchestrationId: string, cual: "undo" | "due"): void {
+  const col = cual === "undo" ? "reminded_undo_at" : "reminded_due_at";
+  db()
+    .prepare(`UPDATE orchestrations SET ${col} = ?, updated_at = ? WHERE id = ?`)
+    .run(now(), now(), orchestrationId);
+}
+
+/**
+ * Las que llevan demasiado tiempo esperando: la sesión 2 nunca ocurrió.
+ *
+ * Es el peor caso del piloto —alguien sin su servicio por culpa de Ork— y por
+ * eso se marca y se cuenta aparte de los fallos técnicos.
+ */
+export function abandonedCandidates(today: string, tras = ABANDONO_TRAS_DIAS): OrchestrationRow[] {
+  return db()
+    .prepare<[string, string], OrchestrationRow>(
+      `SELECT * FROM orchestrations
+        WHERE state = 'esperando_recontrato'
+          AND abandoned_at IS NULL
+          AND to_date IS NOT NULL
+          AND date(to_date, '+' || ? || ' days') < ?
+        ORDER BY to_date`,
+    )
+    .all(String(tras), today);
+}
+
+export function markAbandoned(orchestrationId: string, userId: string, serviceId: string): void {
+  db()
+    .prepare(
+      "UPDATE orchestrations SET abandoned_at = ?, state = 'abandonado', updated_at = ? WHERE id = ?",
+    )
+    .run(now(), now(), orchestrationId);
+
+  track({
+    type: "pilot.second_session_missed",
+    orchestrationId,
+    userId,
+    serviceId,
+    severity: "critical",
+    payload: { motivo: "pasó la fecha objetivo y nunca se recontrató" },
+  });
+}
+
+/** Guarda el resultado de la fase 2. */
+export function finishPhase2(
+  orchestrationId: string,
+  state: string,
+  retries: number,
+  error: string | null,
+): void {
+  db()
+    .prepare(
+      "UPDATE orchestrations SET state = ?, retries = ?, error = ?, updated_at = ? WHERE id = ?",
+    )
+    .run(state, retries, error, now(), orchestrationId);
 }

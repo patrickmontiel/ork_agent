@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth/session";
 import { getService, priceUsability } from "@/lib/db/repo/services";
-import { getUserService, applyNewDate } from "@/lib/db/repo/user-services";
+import { getUserService } from "@/lib/db/repo/user-services";
 import { requireMandate } from "@/lib/mandate/guard";
-import { getAdapter, hasAdapter, retryMax } from "@/lib/adapters/registry";
+import { getAdapter, hasAdapter } from "@/lib/adapters/registry";
 import { kill } from "@/lib/db/repo/pilot";
 import { computeTradeoff, type TradeoffOption } from "@/lib/pilot/tradeoff";
 import { detectPromo, promoLost } from "@/lib/pilot/promo";
-import { runOrchestration } from "@/lib/pilot/run";
+import { runCancelPhase } from "@/lib/pilot/run";
+import { planSupport } from "@/lib/pilot/plan-support";
 import * as orch from "@/lib/db/repo/orchestrations";
 import { todayCDMX } from "@/lib/db";
-import { chargeFeeAfterSuccess } from "@/lib/billing/fee";
 import { track } from "@/lib/db/repo/events";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +88,26 @@ export async function POST(req: NextRequest) {
   if (!state.periodEnd) {
     return NextResponse.json(
       { ok: false, error: "No pudimos leer cuándo termina tu periodo pagado, así que no vamos a mover nada." },
+      { status: 422 },
+    );
+  }
+
+  // ── Reja de plan ────────────────────────────────────────────────────────
+  // Spotify es orquestable, pero un plan Duo o Family no: cancelarlo deja sin
+  // servicio a una segunda persona que nunca firmó nada con Ork. Esto va antes
+  // del trade-off para que ni siquiera se le muestren números a alguien a quien
+  // no le vamos a dejar seguir.
+  const soporte = planSupport(state.plan);
+  if (!soporte.supported) {
+    track({
+      type: "fee.skipped",
+      userId: user.id,
+      serviceId: service.id,
+      severity: "warn",
+      payload: { motivo: "plan no soportado", razon: soporte.reason, plan: state.plan },
+    });
+    return NextResponse.json(
+      { ok: false, error: soporte.message, planNoSoportado: true, razon: soporte.reason },
       { status: 422 },
     );
   }
@@ -202,16 +222,9 @@ export async function PUT(req: NextRequest) {
   const service = getService(row.service_id)!;
   const { adapter } = getAdapter({ serviceId: row.service_id, scenario: body.scenario as never });
 
-  const result = await runOrchestration({
-    adapter,
-    tradeoff,
-    chosen,
-    targetDay: row.to_day!,
-    retryMax: retryMax(),
-    retryDelayMs: 0,
-  });
-
-  orch.finish(row.id, result, result.priorState);
+  // FASE 1: cancelar y verificar. El recontrato NO ocurre hoy — ocurre el día
+  // objetivo, y necesita a la persona presente otra vez.
+  const result = await runCancelPhase({ adapter, resubDate: chosen.resubDate });
 
   // Una cuenta restringida apaga el piloto entero, no solo esta corrida.
   if (result.accountRestricted) {
@@ -222,40 +235,29 @@ export async function PUT(req: NextRequest) {
     });
   }
 
-  const exito = result.state === "completado";
+  const esperando = result.state === "esperando_recontrato";
 
-  // Solo se escribe la fecha nueva si de verdad quedó movida y verificada.
-  if (exito && row.user_service_id && result.finalState?.periodEnd) {
-    applyNewDate(row.user_service_id, row.to_day!, result.finalState.periodEnd);
+  if (esperando) {
+    orch.startWaiting(row.id, result.undoDeadline, result.priorState);
+  } else {
+    orch.finishPhase2(row.id, result.state, 0, result.userMessage);
   }
 
-  // El fee se cobra SOLO tras un éxito verificado. Si Ork no movió la fecha,
-  // Ork no cobra — y "la API no falló" no cuenta como haberla movido.
-  // Que el cobro falle nunca invalida una orquestación que sí funcionó: por eso
-  // va al final y su error no tumba la respuesta.
-  let cobro: { url: string; monto: number; moneda: string } | null = null;
-  try {
-    const fee = await chargeFeeAfterSuccess(user, row.id, exito);
-    if (fee.charged) cobro = { url: fee.checkoutUrl, monto: fee.amount, moneda: fee.currency };
-  } catch (e) {
-    track({
-      type: "fee.skipped",
-      userId: user.id,
-      orchestrationId: row.id,
-      severity: "warn",
-      payload: { motivo: e instanceof Error ? e.message : String(e) },
-    });
-  }
-
+  // NO se cobra aquí. El fee se cobra solo tras un éxito VERIFICADO, y a estas
+  // alturas todavía no hay éxito: falta la fase 2. Cobrar por haber cancelado
+  // sería cobrar por dejar a alguien sin servicio.
   return NextResponse.json({
-    ok: exito,
+    ok: esperando,
     estado: result.state,
     mensaje: result.userMessage,
     pasosManuales: result.manualSteps ?? null,
-    reintentos: result.retries,
     cuentaRestringida: result.accountRestricted,
     eventos: result.events.map((e) => ({ tipo: e.type, mensaje: e.message })),
-    cobro,
+    // Lo que la persona necesita saber ahora:
+    esperandoRecontrato: esperando,
+    puedesDeshacerHasta: result.undoDeadline,
+    recontratarEl: esperando ? chosen.resubDate : null,
+    cobro: null,
   });
 }
 
